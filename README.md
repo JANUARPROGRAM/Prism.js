@@ -71,6 +71,7 @@ Run `npm run dev` and open `http://localhost:8080/examples/`.
 | Example | Shows |
 | --- | --- |
 | `01-triangle` | Context creation, shader program, one draw call, resize handling |
+| `02-game` | Prism Dodge: dynamic vertex buffer, per-frame batching, touch/keyboard input |
 
 More examples arrive with the phases they depend on.
 
