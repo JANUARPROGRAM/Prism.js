@@ -1,51 +1,52 @@
 # PROGRESS
 
 ## Completed
-- **Phase 0 – Foundation**: package, dev server, build scripts, docs, tests, examples.
-- **Phase 1 – Math**: Vector2/3/4, Matrix3/4, Quaternion, Euler (6 orders), Color.
-- **Phase 2 – Scene graph**: Object3D (lazy matrices, Euler<->quaternion sync, lookAt), Scene, Mesh, cameras.
-- **Phase 3 – Renderer** (core): `render(scene, camera)`, program cache (per material type), `WebGLState` cache, GPU geometry cache with versioned re-upload, render list with sorting and pooling, depth/cull/blend, wireframe, context-loss recovery, disposal, `renderer.info`.
-- **Phase 4 – Geometry**: BufferAttribute, BufferGeometry, Box/Plane/SphereGeometry, computeVertexNormals.
-- **Phase 5 – Materials**: Material, BasicMaterial, NormalMaterial (opacity, transparent, side, wireframe, depthTest, depthWrite).
-- Examples 01-triangle, 02-game, 03-scene.
+- **Phase 0 – Foundation**: ESM package, dev server, build scripts, README, LICENSE, tests, examples.
+- **Phase 1 – Math**: Vector2/3/4, Matrix3/4 (multiply, invert, compose/decompose, perspective, orthographic, lookAt), Quaternion (slerp), Euler (all 6 orders, gimbal handling), Color.
+- **Phase 2 – Scene graph**: Object3D (lazy matrix updates, Euler<->quaternion sync, lookAt, traverse), Scene, Mesh, Camera, PerspectiveCamera, OrthographicCamera.
+- **Phase 3 – Renderer** (core): `render(scene, camera)`, program cache, GPU geometry cache (VAO/VBO/IBO, version-based re-upload), GL state cache, sorted render list, resize/pixel ratio, context loss + automatic rebuild, `renderer.info`, disposal.
+- **Phase 4 – Geometry**: BufferAttribute, BufferGeometry (computeVertexNormals), Box/Plane/SphereGeometry with position/normal/uv/index.
+- **Phase 5 – Materials**: Material, BasicMaterial, NormalMaterial; opacity, transparent, side, wireframe, depthTest, depthWrite.
+- Examples 01 triangle, 02 game (Prism Dodge), 03 scene.
 
 ## In Progress
 - Nothing.
 
 ## Remaining
-- Phase 6 lights: Ambient/Directional/Point + a lit material (Lambert-style)
+- Phase 6 lights: AmbientLight, DirectionalLight, PointLight + a lit material (Lambert-style) and its GLSL
 - Phase 7 textures: Texture, TextureLoader, filtering/wrapping/mipmaps, `map` on materials
-- Phase 8 loaders: OBJ first, GLTF later
-- Phase 9 performance: frustum culling + bounding volumes, per-material uniform caching, instancing, benchmark harness (no performance claims exist yet)
-- Phase 10 DX: docs/ folder, examples 04–10, ShaderMaterial / extension point for custom shaders
-- Raycasting/picking, OrbitControls-style camera helper, WebGL1 fallback decision, vertex colors
+- Phase 8 loaders: OBJ first, then (maybe) glTF
+- Phase 9 performance: frustum culling (needs bounding spheres), per-material uniform caching, instancing, measure with real GPUs
+- Phase 10 DX: docs/ folder, API reference, examples 04-10 (material, texture, light, multiple objects, OBJ, animation)
+- Custom shaders/attributes (`ShaderMaterial`); today only attributes position/normal/uv/color are bound, and `color` has no built-in shader yet
+- WebGL1 fallback decision; raycaster/picking; camera controls
+- Replace the example-only 2D batch in 02-game with engine primitives if a sprite/2D layer is added
 
 ## Known Bugs / Limitations
-- No lighting: materials are unlit.
+- No lights or textures: scenes are flat-colored or normal-shaded.
 - No frustum culling: every visible mesh is drawn.
-- Only attributes `position`, `normal`, `uv`, `color` are bound; others are stored but ignored. `uv`/`color` are not consumed by any built-in shader yet.
-- Material uniforms are re-uploaded on every draw (cheap, but not cached).
-- Non-uniform scale on a parent combined with `lookAt` on a child is not handled precisely.
-- Raw `gl` calls that change depth/cull/blend/program/VAO state require `renderer.state.reset()` before the next `render()`.
-- Resources created with raw `gl` calls (examples 01/02) are not rebuilt after a context restore.
-- Color values are used as-is (no sRGB/linear handling).
+- Material uniforms are re-uploaded on every draw (cheap but not cached).
+- Wireframe line indices are built on the CPU the first time a geometry is drawn as wireframe (a hitch for very large meshes).
+- Object3D.lookAt with a non-uniform-scaled parent is approximate (parent scale is ignored).
+- `Renderer.clear()` + raw gl code share state with the engine: call `renderer.state.reset()` after raw calls that change depth/cull/blend/program/VAO.
+- Raw-gl resources created by user code (examples 01/02) are not rebuilt after a context restore.
 
 ## Verification status
-- VERIFIED: 119 unit tests pass on Node 22 (math incl. random-matrix inversion and all six Euler orders, scene graph, camera projection, geometry winding/normals, renderer state/program/buffer management and disposal). Renderer tests use a mock GL.
-- VERIFIED: examples 01, 02 and 03 run in headless Chromium 141 (software GL) with no console errors; 02 starts on tap, scores and draws the ship with the rewritten Renderer. 01 and 03 render correctly: correct perspective, depth ordering, transparency, wireframe, resize with devicePixelRatio; no console errors. `renderer.info` reported exactly the expected 6 draw calls / 2156 triangles for 03-scene.
-- VERIFIED: `npm run build` bundles work (esbuild 0.27.7 found locally).
-- NOT VERIFIED: touch input on a real phone; game-over/restart flow of 02; `npm install` from the registry; Firefox, Safari, Edge, Android Chrome; real GPUs; any performance characteristic (the fps shown in 03-scene is software rendering in a sandbox and says nothing about real devices).
+- VERIFIED (Node 22): 119 unit tests pass. They use a mock GL, so they cover logic, validation, state caching, sorting, resource cleanup and numerics (random-matrix inverse, Euler round trips for all six orders, projection near/far mapping, geometry winding/normals), not pixels.
+- VERIFIED (headless Chromium 141, SwiftShader software GL): examples 01, 02 and 03 render with no console errors/warnings; 03 reports 6 draw calls / 2156 triangles, matching the hand-computed value; resize and portrait framing checked; shader and context-creation errors format correctly on a real driver.
+- VERIFIED: `npm run build` bundles (esbuild 0.27.7, found locally) and the example bundle runs.
+- UNVERIFIED: `npm install` from the registry, Firefox, Safari, Edge, Android Chrome, real GPU drivers, frame-time performance (the ~50-60 fps seen is software rendering), any comparison with other engines.
 
 ## Architecture Decisions
-- ES modules, no TypeScript, no dependencies; `src/` is shipped as-is, `dist/` is for script tags. Only `src/index.js` is public.
-- Matrices are column-major Float64Array; converted to Float32 scratch arrays on upload.
-- `rotation` (Euler) and `quaternion` are linked with change callbacks; setting a component never wraps angles.
-- Object3D skips matrix work when position/quaternion/scale are unchanged; world matrices recompute only for dirty subtrees.
-- Programs are shared per `material.type`; built-in attribute locations are fixed (`position`=0, `normal`=1, `uv`=2, `color`=3) so one VAO per geometry works with every program.
-- Index type is Uint16 unless an index exceeds 65534 (65535 is WebGL2's primitive-restart value).
-- `-Z` is forward for cameras and for `Object3D.lookAt`.
-- Errors carry the driver log, program name and source excerpt; info logs are stripped of NUL terminators.
-- Tests use a Proxy-based mock GL that tracks live GL objects to catch leaks.
+- ES modules only, no TypeScript/framework, zero runtime dependencies. `src/` ships as-is; `dist/` is for script tags.
+- Only `src/index.js` is public API. Renderer internals (WebGLState/Programs/Geometries/RenderList) are not exported.
+- WebGL2 only for now; one `Renderer` class (no separate WebGLRenderer) until a second backend exists.
+- Math in Float64 on the CPU; converted to Float32 into reused scratch arrays on upload.
+- Matrices column-major, right-handed, -Z forward; Euler order XYZ means R = Rx*Ry*Rz; Euler and quaternion are linked by change callbacks, and Euler angles are never re-wrapped by the engine.
+- Programs are keyed by `material.type` (one compile per type). Built-in shaders use fixed attribute locations (position 0, normal 1, uv 2, color 3), so one VAO per geometry works for every program.
+- Index buffers use Uint16 only when max index <= 65534 (65535 is WebGL2's primitive-restart value).
+- Geometry/material disposal uses listener sets so the renderer can free GPU objects without the core classes depending on the renderer.
+- Unknown material options throw (typo protection); `Color` is not color-managed (no sRGB conversion).
 
 ## Next Task
-Phase 6: `Light`, `AmbientLight`, `DirectionalLight`, `PointLight` and a `LambertMaterial` (per-fragment diffuse), collected per frame in the renderer without per-frame allocation; then update 03-scene to use it.
+Phase 6: `Light` base + AmbientLight/DirectionalLight/PointLight, a `LambertMaterial` with per-fragment diffuse lighting (uniform arrays for a small fixed number of lights), tests for light collection and uniform packing, and example `06-light`. After that, Phase 7 textures.

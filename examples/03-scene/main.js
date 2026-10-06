@@ -68,6 +68,9 @@ try {
 		if (renderer.resizeToDisplaySize()) {
 			camera.aspect = renderer.width / renderer.height;
 			camera.updateProjectionMatrix();
+			// Portrait screens are narrow: back the camera off along its view line so the scene still fits.
+			const k = Math.max(1, 1 / camera.aspect);
+			camera.position.set(0, 2.4 * k, 7.5 * k);
 		}
 		renderer.render(scene, camera);
 
