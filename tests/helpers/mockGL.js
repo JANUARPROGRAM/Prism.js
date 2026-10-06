@@ -40,11 +40,27 @@ export function createMockGL({ vertexLog = null, fragmentLog = null, linkLog = n
 			return gl.canvas ? gl.canvas.height : 0;
 		},
 
+		shaderCount: 0,
+		liveBuffers: new Set(),
+		liveVAOs: new Set(),
+		lastMatrix: null,
+
 		createShader(type) {
 			const shader = { type };
+			gl.shaderCount++;
 			gl.liveShaders.add(shader);
 			return shader;
 		},
+		createBuffer() { const b = {}; gl.liveBuffers.add(b); return b; },
+		deleteBuffer(b) { gl.liveBuffers.delete(b); },
+		createVertexArray() { const v = {}; gl.liveVAOs.add(v); return v; },
+		deleteVertexArray(v) { gl.liveVAOs.delete(v); },
+		uniformMatrix4fv(loc, transpose, array) {
+			gl.lastMatrix = Array.from(array);
+			gl.calls.push(['uniformMatrix4fv', loc, transpose, gl.lastMatrix]);
+		},
+		drawElements(mode, count, type, offset) { gl.calls.push(['drawElements', mode, count, type, offset, gl.lastMatrix]); },
+		drawArrays(mode, first, count) { gl.calls.push(['drawArrays', mode, first, count, gl.lastMatrix]); },
 		shaderSource(shader, source) {
 			shader.source = source;
 		},
@@ -109,7 +125,28 @@ export function createMockGL({ vertexLog = null, fragmentLog = null, linkLog = n
 			gl.calls.push(['viewport', ...args]);
 		}
 	};
-	return gl;
+	return withFallbacks(gl);
+}
+
+/**
+ * Unknown ALL_CAPS properties become unique constants and unknown methods become
+ * recorded no-ops, so tests only define the GL functions whose results matter.
+ */
+function withFallbacks(gl) {
+	const constants = new Map();
+	const noops = new Map();
+	let nextConstant = 0x9000;
+	return new Proxy(gl, {
+		get(target, prop, receiver) {
+			if (prop in target || typeof prop === 'symbol') return Reflect.get(target, prop, receiver);
+			if (/^[A-Z][A-Z0-9_]*$/.test(prop)) {
+				if (!constants.has(prop)) constants.set(prop, nextConstant++);
+				return constants.get(prop);
+			}
+			if (!noops.has(prop)) noops.set(prop, (...args) => { target.calls.push([prop, ...args]); });
+			return noops.get(prop);
+		}
+	});
 }
 
 /**

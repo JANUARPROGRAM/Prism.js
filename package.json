@@ -1,6 +1,6 @@
 {
   "name": "prism.js",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "A lightweight JavaScript 3D rendering engine built from scratch on top of WebGL/WebGL2.",
   "keywords": ["3d", "webgl", "webgl2", "graphics", "rendering", "engine"],
   "license": "MIT",

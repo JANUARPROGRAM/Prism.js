@@ -1,12 +1,9 @@
-/**
- * Owns the WebGL2 context, the drawing-buffer size and the clear state.
- *
- * Scene rendering (`render(scene, camera)`) is added with the scene graph and
- * draw-call phases; until then the renderer exposes the context (`renderer.gl`)
- * so low-level code, such as examples/01-triangle, can draw with it directly.
- */
-
-const MAX_HEX_COLOR = 0xffffff;
+import { Color } from '../math/Color.js';
+import { Matrix3 } from '../math/Matrix3.js';
+import { WebGLState } from './WebGLState.js';
+import { WebGLPrograms } from './WebGLPrograms.js';
+import { WebGLGeometries } from './WebGLGeometries.js';
+import { RenderList } from './RenderList.js';
 
 function createCanvas() {
 	if (typeof document === 'undefined') {
@@ -17,20 +14,20 @@ function createCanvas() {
 	return document.createElement('canvas');
 }
 
-function assertHexColor(value) {
-	if (!Number.isInteger(value) || value < 0 || value > MAX_HEX_COLOR) {
-		throw new RangeError(
-			`Prism.js: Expected a color as an integer between 0x000000 and 0xffffff, received ${String(value)}.`
-		);
-	}
-}
-
 function assertPositive(name, value) {
 	if (!Number.isFinite(value) || value <= 0) {
 		throw new RangeError(`Prism.js: ${name} must be a positive finite number, received ${String(value)}.`);
 	}
 }
 
+/**
+ * Owns the WebGL2 context, the drawing-buffer size and the clear state, and
+ * draws scenes with `render(scene, camera)`.
+ *
+ * `renderer.gl` stays available for low-level code (see examples/01-triangle).
+ * Raw gl calls that change depth/cull/blend state or the bound program/VAO
+ * should be followed by `renderer.state.reset()` before the next `render()`.
+ */
 export class Renderer {
 	/**
 	 * @param {object} [options]
@@ -78,6 +75,14 @@ export class Renderer {
 			maxVertexAttributes: gl.getParameter(gl.MAX_VERTEX_ATTRIBS)
 		});
 
+		/** Counters for debugging and profiling; `render` values describe the last render() call. */
+		this.info = {
+			render: { frame: 0, calls: 0, triangles: 0, lines: 0 },
+			memory: { geometries: 0, programs: 0 }
+		};
+
+		/** Clear the framebuffer at the start of render(). */
+		this.autoClear = true;
 		/** CSS-pixel size of the canvas, as last set through `setSize`. */
 		this.width = canvas.width / pixelRatio;
 		this.height = canvas.height / pixelRatio;
@@ -86,19 +91,36 @@ export class Renderer {
 
 		this._pixelRatio = pixelRatio;
 		this._clearColor = [0, 0, 0, 1];
+		this._appliedClear = [NaN, NaN, NaN, NaN];
 		this._disposed = false;
+
+		this.state = new WebGLState(gl);
+		this._programs = new WebGLPrograms(gl, this.info);
+		this._geometries = new WebGLGeometries(gl, this.state, this.info);
+		this._list = new RenderList();
+
+		// Scratch objects reused every frame (no per-frame allocation).
+		this._colorScratch = new Color();
+		this._normalMatrix = new Matrix3();
+		this._projectionArray = new Float32Array(16);
+		this._modelViewArray = new Float32Array(16);
+		this._normalArray = new Float32Array(9);
 
 		this._onContextLost = (event) => {
 			// Without preventDefault the browser never restores the context.
 			event.preventDefault();
 			this.contextLost = true;
 			console.warn(
-				'Prism.js: WebGL context lost. GPU resources (buffers, programs, textures) ' +
-					'must be recreated once the context is restored.'
+				'Prism.js: WebGL context lost. Engine-managed GPU resources are rebuilt automatically ' +
+					'on restore; resources you created with raw gl calls must be recreated by you.'
 			);
 		};
 		this._onContextRestored = () => {
 			this.contextLost = false;
+			// All GL objects died with the old context: drop caches so they are recreated on demand.
+			this._programs.clear();
+			this._geometries.clear();
+			this.state.reset();
 			this._applyState();
 			console.info('Prism.js: WebGL context restored.');
 		};
@@ -164,45 +186,160 @@ export class Renderer {
 	}
 
 	/**
-	 * @param {number} hex Color as 0xRRGGBB. (Becomes a `Color` once the math phase lands.)
+	 * @param {number|string|Color} color 0xRRGGBB, '#rrggbb' or a Color.
 	 * @param {number} [alpha=1]
 	 */
-	setClearColor(hex, alpha = 1) {
+	setClearColor(color, alpha = 1) {
 		this._assertAlive();
-		assertHexColor(hex);
+		this._colorScratch.set(color);
 		if (!(alpha >= 0 && alpha <= 1)) {
 			throw new RangeError(`Prism.js: Clear alpha must be between 0 and 1, received ${String(alpha)}.`);
 		}
-
-		const color = this._clearColor;
-		color[0] = ((hex >> 16) & 0xff) / 255;
-		color[1] = ((hex >> 8) & 0xff) / 255;
-		color[2] = (hex & 0xff) / 255;
-		color[3] = alpha;
-		this.gl.clearColor(color[0], color[1], color[2], color[3]);
+		const c = this._clearColor;
+		c[0] = this._colorScratch.r;
+		c[1] = this._colorScratch.g;
+		c[2] = this._colorScratch.b;
+		c[3] = alpha;
+		this._applyClearColor(c[0], c[1], c[2], c[3]);
 	}
 
-	/** Clears the selected buffers of the current framebuffer. */
+	/** Clears the selected buffers of the current framebuffer using the renderer's clear color. */
 	clear(color = true, depth = true, stencil = false) {
 		this._assertAlive();
 		const gl = this.gl;
+		const c = this._clearColor;
+		this._applyClearColor(c[0], c[1], c[2], c[3]);
 		let mask = 0;
 		if (color) mask |= gl.COLOR_BUFFER_BIT;
-		if (depth) mask |= gl.DEPTH_BUFFER_BIT;
+		if (depth) {
+			mask |= gl.DEPTH_BUFFER_BIT;
+			this.state.setDepthMask(true); // gl.clear honours the depth write mask
+		}
 		if (stencil) mask |= gl.STENCIL_BUFFER_BIT;
 		if (mask !== 0) gl.clear(mask);
 	}
 
 	/**
-	 * Stops listening to the canvas. The context itself stays usable by the
-	 * browser's garbage collector; GPU resources created by the application
-	 * (geometries, programs, textures) must be disposed by their owners.
+	 * Draws every visible Mesh in `scene` as seen by `camera`.
+	 * Opaque objects are grouped by material and drawn near to far; transparent
+	 * ones are drawn afterwards, far to near. World matrices are updated first.
+	 */
+	render(scene, camera) {
+		this._assertAlive();
+		if (!scene || !scene.isScene) {
+			throw new TypeError('Prism.js: Renderer.render(scene, camera) expects a Scene as its first argument.');
+		}
+		if (!camera || !camera.isCamera) {
+			throw new TypeError('Prism.js: Renderer.render(scene, camera) expects a Camera as its second argument.');
+		}
+		if (this.contextLost) return;
+
+		const gl = this.gl;
+		const stats = this.info.render;
+		stats.frame++;
+		stats.calls = 0;
+		stats.triangles = 0;
+		stats.lines = 0;
+
+		scene.updateMatrixWorld();
+		if (camera.parent === null) camera.updateMatrixWorld();
+
+		this.state.resetBindings();
+		this._list.reset();
+		this._collect(scene, camera);
+		this._list.sort();
+
+		if (this.autoClear) {
+			const bg = scene.background;
+			if (bg) this._applyClearColor(bg.r, bg.g, bg.b, 1);
+			else this._applyClearColor(this._clearColor[0], this._clearColor[1], this._clearColor[2], this._clearColor[3]);
+			this.state.setDepthMask(true);
+			gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+		}
+
+		this._projectionArray.set(camera.projectionMatrix.elements);
+		this._drawItems(this._list.opaque);
+		this._drawItems(this._list.transparent);
+	}
+
+	/**
+	 * Releases everything the renderer created on the GPU (programs, geometry
+	 * buffers) and stops listening to the canvas. Geometries/materials you made
+	 * are not destroyed; they are re-uploaded if rendered by another renderer.
 	 */
 	dispose() {
 		if (this._disposed) return;
 		this._disposed = true;
+		this._geometries.dispose();
+		this._programs.dispose();
 		this.domElement.removeEventListener('webglcontextlost', this._onContextLost, false);
 		this.domElement.removeEventListener('webglcontextrestored', this._onContextRestored, false);
+	}
+
+	_collect(object, camera) {
+		if (!object.visible) return;
+		if (object.isMesh) {
+			const material = object.material;
+			if (!material || !material.isMaterial) {
+				throw new TypeError(`Prism.js: Mesh "${object.name || object.id}" has no valid material.`);
+			}
+			if (material.visible) {
+				const item = this._list.push(object, object.geometry, material);
+				item.modelView.multiplyMatrices(camera.matrixWorldInverse, object.matrixWorld);
+				item.depth = -item.modelView.elements[14];
+			}
+		}
+		const children = object.children;
+		for (let i = 0; i < children.length; i++) this._collect(children[i], camera);
+	}
+
+	_drawItems(items) {
+		const gl = this.gl, state = this.state, stats = this.info.render;
+		const frame = stats.frame;
+
+		for (let i = 0; i < items.length; i++) {
+			const { geometry, material, modelView } = items[i];
+
+			state.setDepthTest(material.depthTest);
+			state.setDepthMask(material.depthWrite);
+			state.setSide(material.side);
+			state.setBlending(material.transparent || material.opacity < 1);
+
+			const entry = this._programs.get(material);
+			const locations = entry.locations;
+			state.useProgram(entry.program.program);
+
+			if (entry.frame !== frame) { // projection is identical for every draw of this frame
+				gl.uniformMatrix4fv(locations.uProjectionMatrix, false, this._projectionArray);
+				entry.frame = frame;
+			}
+			this._modelViewArray.set(modelView.elements);
+			gl.uniformMatrix4fv(locations.uModelViewMatrix, false, this._modelViewArray);
+			if (entry.definition.usesNormalMatrix) {
+				this._normalMatrix.getNormalMatrix(modelView);
+				this._normalArray.set(this._normalMatrix.elements);
+				gl.uniformMatrix3fv(locations.uNormalMatrix, false, this._normalArray);
+			}
+			entry.definition.uploadMaterial(gl, locations, material);
+
+			const record = this._geometries.get(geometry);
+			if (material.wireframe) {
+				const wire = this._geometries.getWireframe(record, geometry);
+				state.bindVertexArray(wire.vao);
+				gl.drawElements(gl.LINES, wire.count, wire.type, 0);
+				stats.lines += wire.count / 2;
+			} else {
+				state.bindVertexArray(record.vao);
+				if (record.indexBuffer !== null) {
+					gl.drawElements(gl.TRIANGLES, record.indexCount, record.indexType, 0);
+					stats.triangles += record.indexCount / 3;
+				} else {
+					gl.drawArrays(gl.TRIANGLES, 0, geometry.vertexCount);
+					stats.triangles += geometry.vertexCount / 3;
+				}
+			}
+			stats.calls++;
+		}
 	}
 
 	_createContext(canvas, attributes) {
@@ -229,9 +366,17 @@ export class Renderer {
 
 	/** (Re)applies state that a fresh or restored context starts without. */
 	_applyState() {
+		this._appliedClear.fill(NaN);
 		const c = this._clearColor;
-		this.gl.clearColor(c[0], c[1], c[2], c[3]);
+		this._applyClearColor(c[0], c[1], c[2], c[3]);
 		this._applyViewport();
+	}
+
+	_applyClearColor(r, g, b, a) {
+		const applied = this._appliedClear;
+		if (applied[0] === r && applied[1] === g && applied[2] === b && applied[3] === a) return;
+		this.gl.clearColor(r, g, b, a);
+		applied[0] = r; applied[1] = g; applied[2] = b; applied[3] = a;
 	}
 
 	_applyViewport() {

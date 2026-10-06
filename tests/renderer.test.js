@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { Renderer } from '../src/index.js';
+import { Renderer, Color } from '../src/index.js';
 import { createMockCanvas, createMockGL } from './helpers/mockGL.js';
 
 function lastCall(gl, name) {
@@ -110,12 +110,24 @@ test('setClearColor converts 0xRRGGBB to floats and clear() uses the requested b
 	assert.equal(gl.calls.filter((c) => c[0] === 'clear').length, clearsBefore, 'empty mask must not call gl.clear');
 });
 
+test('setClearColor accepts hex strings and Color objects and skips redundant GL calls', () => {
+	const gl = createMockGL();
+	const renderer = new Renderer({ canvas: createMockCanvas({ gl }), pixelRatio: 1 });
+	renderer.setClearColor('#00ff00');
+	assert.deepEqual(lastCall(gl, 'clearColor'), ['clearColor', 0, 1, 0, 1]);
+	const before = gl.calls.filter((c) => c[0] === 'clearColor').length;
+	renderer.setClearColor(new Color(0, 1, 0));
+	renderer.clear();
+	assert.equal(gl.calls.filter((c) => c[0] === 'clearColor').length, before);
+});
+
 test('setClearColor rejects values that are not 24-bit integers', () => {
 	const renderer = new Renderer({ canvas: createMockCanvas(), pixelRatio: 1 });
 	assert.throws(() => renderer.setClearColor(-1), RangeError);
 	assert.throws(() => renderer.setClearColor(0x1000000), RangeError);
 	assert.throws(() => renderer.setClearColor(1.5), RangeError);
-	assert.throws(() => renderer.setClearColor('#ff0000'), RangeError);
+	assert.throws(() => renderer.setClearColor('red'), RangeError);
+	assert.throws(() => renderer.setClearColor(null), TypeError);
 	assert.throws(() => renderer.setClearColor(0xffffff, 2), RangeError);
 });
 

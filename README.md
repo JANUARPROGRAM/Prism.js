@@ -1,68 +1,69 @@
 # Prism.js
 
-A lightweight JavaScript 3D rendering engine built from scratch on top of WebGL/WebGL2.
+A lightweight JavaScript 3D rendering engine built from scratch on top of WebGL2.
 
-> **Status: pre-alpha (v0.1.0).** Only the foundation exists: WebGL2 context management, shader programs and one example. There is no scene graph, math library, geometry or materials yet. See [PROGRESS.md](PROGRESS.md) for exactly what is done and what is not.
+> **Status: pre-alpha (v0.2.0).** The core pipeline works: math, scene graph, geometry, materials and `renderer.render(scene, camera)`. Lights, textures and model loaders are not implemented yet, and Prism.js is **not** feature-comparable with mature engines such as Three.js. See [PROGRESS.md](PROGRESS.md) for what exists, what is verified and what is missing.
 
 ## Why
 
-Prism.js aims to be a small, readable, modular engine with its own architecture: a simple API for beginners, clear extension points for advanced users, no dependencies and no framework requirements. It does not wrap or copy any existing 3D engine.
+A small, readable, modular engine with its own architecture: a simple API for beginners, clear extension points for advanced users, zero dependencies, no framework requirements. It does not wrap or copy any existing 3D engine.
 
 ## Installation
 
 Not published to npm yet. From a checkout:
 
 ```bash
-npm install     # only needed for `npm run build` (installs esbuild)
-npm run dev     # serves the repo at http://localhost:8080/
+npm run dev       # serves the repo at http://localhost:8080/ (no install needed)
+npm install       # only needed for `npm run build` (installs esbuild)
 ```
 
-Once published:
+Once published: `import * as Prism from "prism.js";`
+
+## Quick start
 
 ```js
 import * as Prism from "prism.js";
+
+const renderer = new Prism.Renderer({ canvas: document.querySelector("canvas") });
+const scene = new Prism.Scene();
+const camera = new Prism.PerspectiveCamera(75, 1, 0.1, 1000);
+camera.position.z = 5;
+
+const cube = new Prism.Mesh(
+  new Prism.BoxGeometry(1, 1, 1),
+  new Prism.NormalMaterial()
+);
+scene.add(cube);
+
+function animate() {
+  cube.rotation.x += 0.01;
+  cube.rotation.y += 0.01;
+
+  if (renderer.resizeToDisplaySize()) {          // canvas sized with CSS
+    camera.aspect = renderer.width / renderer.height;
+    camera.updateProjectionMatrix();
+  }
+  renderer.render(scene, camera);
+  requestAnimationFrame(animate);
+}
+requestAnimationFrame(animate);
 ```
 
-## Quick start (what works today)
+A complete page is in [examples/03-scene](examples/03-scene/main.js).
 
-```js
-import { Renderer, WebGLProgram } from "prism.js";
+## API overview
 
-const renderer = new Renderer({ canvas: document.querySelector("canvas") });
-renderer.setClearColor(0x14161a);
-renderer.setSize(window.innerWidth, window.innerHeight);
+**Math** – `Vector2/3/4`, `Matrix3/4` (column-major, double precision), `Quaternion`, `Euler` (all six orders), `Color` (`0xRRGGBB`, `'#rgb'`, `'#rrggbb'`, floats; no sRGB conversion). Methods mutate and return `this`; `clone()` copies.
 
-const program = new WebGLProgram(renderer.gl, {
-  name: "MyProgram",
-  vertexShader: `#version 300 es ...`,
-  fragmentShader: `#version 300 es ...`
-});
+**Scene graph** – `Object3D` (`position`, `rotation`, `quaternion`, `scale`, `parent`, `children`, `add`, `remove`, `traverse`, `lookAt`, `updateMatrixWorld`), `Scene` (`background`), `Mesh(geometry, material)`, `PerspectiveCamera(fovDegrees, aspect, near, far)`, `OrthographicCamera`. `rotation` and `quaternion` stay in sync. Cameras and objects look down **-Z**. Matrices are only recomputed when a transform or an ancestor changed.
 
-renderer.clear();
-program.use();
-// ...draw with renderer.gl
-```
+**Geometry** – `BufferGeometry` / `BufferAttribute`, `BoxGeometry`, `PlaneGeometry`, `SphereGeometry` (positions, normals, UVs, indices; counter-clockwise front faces). `geometry.dispose()` frees GPU buffers.
 
-The complete, runnable version is [examples/01-triangle](examples/01-triangle/main.js).
+**Materials** – `BasicMaterial({ color })` and `NormalMaterial()`, sharing `opacity`, `transparent`, `side` (`FrontSide`/`BackSide`/`DoubleSide`), `depthTest`, `depthWrite`, `visible` and `wireframe`. Unknown options throw, so typos are caught.
 
-## Basic API
+**Renderer** – `new Renderer({ canvas, antialias, alpha, pixelRatio, ... })`, `render(scene, camera)`, `setSize`, `setPixelRatio`, `resizeToDisplaySize`, `setClearColor`, `clear`, `dispose`, `info` (draw calls, triangles, programs, geometries), `capabilities`, `gl`. Opaque meshes are grouped by material and drawn near to far, transparent ones far to near. Programs are compiled once per material type; GL state changes and buffer uploads are cached. After a lost WebGL context is restored, programs and geometry buffers are rebuilt automatically.
 
-**`new Renderer(options)`** – options: `canvas`, `alpha`, `antialias`, `depth`, `stencil`, `powerPreference`, `preserveDrawingBuffer`, `pixelRatio`.
-Throws a descriptive error if WebGL2 is unavailable.
-
-| Member | Purpose |
-| --- | --- |
-| `gl` | The `WebGL2RenderingContext` |
-| `domElement` | The canvas |
-| `capabilities` | Frozen object: GL version, GLSL version, max texture size, max vertex attributes |
-| `setSize(w, h, updateStyle = true)` | Size in CSS pixels; drawing buffer = size × pixelRatio |
-| `setPixelRatio(r)` | Change pixel ratio |
-| `resizeToDisplaySize()` | For CSS-sized canvases; returns `true` if the buffer changed |
-| `setClearColor(0xRRGGBB, alpha = 1)` | Clear color |
-| `clear(color = true, depth = true, stencil = false)` | Clear buffers |
-| `dispose()` | Remove event listeners; later calls throw |
-
-**`new WebGLProgram(gl, { vertexShader, fragmentShader, name })`** – GLSL ES 3.00 sources. Compile and link errors include the driver log, the program name and the offending source lines. Methods: `use()`, `getUniformLocation(name)` and `getAttributeLocation(name)` (both cached), `dispose()`.
+**Low level** – `WebGLProgram(gl, { vertexShader, fragmentShader, name })` compiles GLSL ES 3.00 with detailed errors (driver log, program name, source excerpt).
 
 ## Examples
 
@@ -70,43 +71,40 @@ Run `npm run dev` and open `http://localhost:8080/examples/`.
 
 | Example | Shows |
 | --- | --- |
-| `01-triangle` | Context creation, shader program, one draw call, resize handling |
-| `02-game` | Prism Dodge: dynamic vertex buffer, per-frame batching, touch/keyboard input |
-
-More examples arrive with the phases they depend on.
+| `01-triangle` | Raw context, shader program, one draw call |
+| `02-game` | Prism Dodge: a 2D game using `Renderer` + `WebGLProgram` with a dynamic vertex buffer |
+| `03-scene` | Scene graph, geometries, materials, transparency, wireframe, resize |
 
 ## Architecture
 
 ```
 src/
-  index.js            public API (only what is exported here is public)
-  renderer/
-    Renderer.js       context, size, clear state, context-loss handling
-    WebGLProgram.js   shader compile/link, location caching, error reporting
-scripts/serve.js      zero-dependency dev server
-tests/                node:test unit tests
-examples/             runnable examples (native ES modules, no build step)
+  index.js        public API (only what is exported here is supported)
+  constants.js    FrontSide / BackSide / DoubleSide
+  math/           Vector2/3/4, Matrix3/4, Quaternion, Euler, Color, MathUtils
+  core/           Object3D, Scene, Mesh, Camera, PerspectiveCamera, OrthographicCamera
+  geometry/       BufferAttribute, BufferGeometry, Box/Plane/SphereGeometry
+  materials/      Material, BasicMaterial, NormalMaterial
+  renderer/       Renderer, WebGLState, WebGLPrograms, WebGLGeometries, RenderList,
+                  WebGLProgram, shaders/
+tests/            node:test unit tests (math, scene graph, geometry, renderer with a mock GL)
+examples/         runnable examples (native ES modules, no build step)
+scripts/serve.js  zero-dependency dev server
 ```
-
-Planned modules (math, core, geometry, materials, lights, textures, loaders) are listed in PROGRESS.md.
 
 ## Browser support
 
-Prism.js requires **WebGL2**. WebGL1 is not supported yet; creating a renderer without WebGL2 throws an error that explains the likely causes.
-
-Verified so far: headless Chromium (software rendering via SwiftShader). **UNVERIFIED:** Firefox, Safari, Edge, Android Chrome, and real GPUs.
+Requires **WebGL2** (no WebGL1 fallback yet). Creating a renderer without it throws an error that lists the likely causes. Verified so far: headless Chromium with software rendering (SwiftShader). **UNVERIFIED:** Firefox, Safari, Edge, Android Chrome, real GPUs.
 
 ## Development
 
 ```bash
-npm run dev        # dev server, optional: -- --port 3000
-npm test           # unit tests (Node >= 20)
+npm run dev        # dev server (optionally: -- --port 3000)
+npm test           # unit tests, Node >= 20
 npm run build      # dist/prism.module.js (ESM) and dist/prism.min.js (global `Prism`)
 ```
 
-Unit tests run against a mock WebGL context. They cover argument validation, error messages, resource cleanup and caching, not actual GPU output. Rendering is checked by running the examples in a browser.
-
-The package ships its ES-module sources (`src/`) directly; `dist/` is generated for script-tag use.
+Unit tests run against a mock WebGL context: they check math, scene-graph behaviour, geometry correctness, state/program/buffer management and cleanup, not GPU output. Rendering is checked by running the examples in a browser.
 
 ## License
 
