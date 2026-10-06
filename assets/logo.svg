@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" width="256" height="256" role="img" aria-label="Prism.js">
+	<rect width="256" height="256" rx="48" fill="#0b0d17"/>
+	<line x1="24" y1="150" x2="98" y2="136" stroke="#ffffff" stroke-width="6" stroke-linecap="round"/>
+	<polygon points="128,52 196,176 60,176" fill="#1b2142" stroke="#8d96c4" stroke-width="6" stroke-linejoin="round"/>
+	<line x1="128" y1="52" x2="128" y2="176" stroke="#8d96c4" stroke-width="3" opacity="0.6"/>
+	<line x1="150" y1="130" x2="232" y2="96" stroke="#ff4d6d" stroke-width="6" stroke-linecap="round"/>
+	<line x1="152" y1="142" x2="232" y2="130" stroke="#ffd23f" stroke-width="6" stroke-linecap="round"/>
+	<line x1="154" y1="154" x2="232" y2="164" stroke="#5ee1ff" stroke-width="6" stroke-linecap="round"/>
+	<line x1="156" y1="164" x2="232" y2="198" stroke="#c13cff" stroke-width="6" stroke-linecap="round"/>
+</svg>

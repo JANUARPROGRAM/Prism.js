@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+	<meta charset="utf-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1">
+	<link rel="icon" href="data:,">
+	<title>Prism.js – tanpa bundler</title>
+	<!-- Setelah rilis, ganti dengan URL CDN:
+	     https://cdn.jsdelivr.net/gh/JANUARPROGRAM/Prism.js@v0.2.0/dist/prism.css -->
+	<link rel="stylesheet" href="../../dist/prism.css">
+	<style>
+		html, body { height: 100%; margin: 0; background: #0b0d17; }
+	</style>
+</head>
+<body>
+	<canvas id="canvas" class="prism-canvas prism-fullscreen"></canvas>
+	<div id="info" class="prism-info"></div>
+	<pre id="error" class="prism-error" hidden></pre>
+
+	<!-- Setelah rilis: https://cdn.jsdelivr.net/gh/JANUARPROGRAM/Prism.js@v0.2.0/dist/prism.js -->
+	<script src="../../dist/prism.js"></script>
+	<script>
+		try {
+			const renderer = new Prism.Renderer({ canvas: document.getElementById('canvas') });
+			const scene = new Prism.Scene();
+			scene.background = new Prism.Color('#0b0d17');
+			const camera = new Prism.PerspectiveCamera(60, 1, 0.1, 100);
+			camera.position.z = 4;
+
+			const cube = new Prism.Mesh(new Prism.BoxGeometry(1.4, 1.4, 1.4), new Prism.NormalMaterial());
+			scene.add(cube);
+
+			function animate(ms) {
+				cube.rotation.x = ms / 1700;
+				cube.rotation.y = ms / 1100;
+				if (renderer.resizeToDisplaySize()) {
+					camera.aspect = renderer.width / renderer.height;
+					camera.updateProjectionMatrix();
+				}
+				renderer.render(scene, camera);
+				document.getElementById('info').textContent = renderer.info.render.calls + ' draw call';
+				requestAnimationFrame(animate);
+			}
+			requestAnimationFrame(animate);
+		} catch (error) {
+			const box = document.getElementById('error');
+			box.textContent = error.message;
+			box.hidden = false;
+		}
+	</script>
+</body>
+</html>

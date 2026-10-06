@@ -2,7 +2,14 @@
   "name": "prism.js",
   "version": "0.2.0",
   "description": "A lightweight JavaScript 3D rendering engine built from scratch on top of WebGL/WebGL2.",
-  "keywords": ["3d", "webgl", "webgl2", "graphics", "rendering", "engine"],
+  "keywords": [
+    "3d",
+    "webgl",
+    "webgl2",
+    "graphics",
+    "rendering",
+    "engine"
+  ],
   "license": "MIT",
   "type": "module",
   "main": "./src/index.js",
@@ -14,15 +21,33 @@
   "unpkg": "./dist/prism.min.js",
   "jsdelivr": "./dist/prism.min.js",
   "sideEffects": false,
-  "files": ["src", "dist", "README.md", "LICENSE"],
-  "engines": { "node": ">=20" },
+  "files": [
+    "src",
+    "dist",
+    "assets",
+    "README.md",
+    "LICENSE"
+  ],
+  "engines": {
+    "node": ">=20"
+  },
   "scripts": {
     "dev": "node scripts/serve.js",
     "test": "node --test",
-    "build": "esbuild src/index.js --bundle --format=esm --minify --sourcemap --outfile=dist/prism.module.js && esbuild src/index.js --bundle --format=iife --global-name=Prism --minify --sourcemap --outfile=dist/prism.min.js",
-    "prepublishOnly": "npm run build && npm test"
+    "build": "npm run build:js && npm run build:css",
+    "prepublishOnly": "npm run build && npm test",
+    "build:js": "esbuild src/index.js --bundle --format=iife --global-name=Prism --sourcemap --outfile=dist/prism.js && esbuild src/index.js --bundle --format=iife --global-name=Prism --minify --sourcemap --outfile=dist/prism.min.js && esbuild src/index.js --bundle --format=esm --minify --sourcemap --outfile=dist/prism.module.js",
+    "build:css": "esbuild src/prism.css --outfile=dist/prism.css && esbuild src/prism.css --minify --outfile=dist/prism.min.css"
   },
   "devDependencies": {
     "esbuild": "^0.27.7"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/JANUARPROGRAM/Prism.js.git"
+  },
+  "homepage": "https://github.com/JANUARPROGRAM/Prism.js#readme",
+  "bugs": {
+    "url": "https://github.com/JANUARPROGRAM/Prism.js/issues"
   }
 }

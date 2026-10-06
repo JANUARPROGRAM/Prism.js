@@ -1,0 +1,45 @@
+/* Prism.js helper styles. Optional: the engine works without any CSS. */
+
+/* A canvas that fills its (positioned) container and lets Prism handle touch input. */
+.prism-canvas {
+	display: block;
+	width: 100%;
+	height: 100%;
+	touch-action: none;
+}
+
+/* Pin a canvas to the whole viewport. Combine with .prism-canvas. */
+.prism-fullscreen {
+	position: fixed;
+	inset: 0;
+	width: 100%;
+	height: 100%;
+}
+
+/* Small status line (for example draw calls / fps) in the bottom-left corner. */
+.prism-info {
+	position: absolute;
+	left: 12px;
+	bottom: 12px;
+	color: #8d96c4;
+	font: 14px/1.4 system-ui, sans-serif;
+	font-variant-numeric: tabular-nums;
+	pointer-events: none;
+}
+
+/* Box for showing Renderer / shader errors on the page. Toggle with the `hidden` attribute. */
+.prism-error {
+	position: absolute;
+	inset: 12px;
+	margin: 0;
+	padding: 12px;
+	overflow: auto;
+	background: #2a1114;
+	color: #ffd7d7;
+	font: 12px/1.4 ui-monospace, monospace;
+	white-space: pre-wrap;
+	border-radius: 6px;
+}
+.prism-error[hidden] {
+	display: none;
+}

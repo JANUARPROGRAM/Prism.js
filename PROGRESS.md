@@ -7,7 +7,8 @@
 - **Phase 3 – Renderer** (core): `render(scene, camera)`, program cache, GPU geometry cache (VAO/VBO/IBO, version-based re-upload), GL state cache, sorted render list, resize/pixel ratio, context loss + automatic rebuild, `renderer.info`, disposal.
 - **Phase 4 – Geometry**: BufferAttribute, BufferGeometry (computeVertexNormals), Box/Plane/SphereGeometry with position/normal/uv/index.
 - **Phase 5 – Materials**: Material, BasicMaterial, NormalMaterial; opacity, transparent, side, wireframe, depthTest, depthWrite.
-- Examples 01 triangle, 02 game (Prism Dodge), 03 scene.
+- Examples 01 triangle, 02 game (Prism Dodge), 03 scene, cdn (script-tag + CSS usage).
+- **Release packaging for jsDelivr**: `dist/` is committed (no longer gitignored) with `prism.js` (IIFE, global `Prism`), `prism.min.js`, `prism.module.js` (ESM), `prism.css`, `prism.min.css` plus source maps; `src/prism.css` helper styles (opt-in); `assets/` (logo, README preview); Indonesian README with the CDN URLs (`JANUARPROGRAM/Prism.js@v0.2.0`).
 
 ## In Progress
 - Nothing.
@@ -23,6 +24,9 @@
 - Replace the example-only 2D batch in 02-game with engine primitives if a sprite/2D layer is added
 
 ## Known Bugs / Limitations
+- The global name `Prism` (and the file names prism.js / prism.css) collide with the PrismJS syntax highlighter if both are on one page; documented in the README troubleshooting table.
+- `dist/` must be rebuilt (`npm run build`) and committed before every tag; it is not generated automatically.
+- `assets/` has no texture/model yet because there is no TextureLoader/OBJ loader.
 - No lights or textures: scenes are flat-colored or normal-shaded.
 - No frustum culling: every visible mesh is drawn.
 - Material uniforms are re-uploaded on every draw (cheap but not cached).
@@ -35,7 +39,8 @@
 - VERIFIED (Node 22): 119 unit tests pass. They use a mock GL, so they cover logic, validation, state caching, sorting, resource cleanup and numerics (random-matrix inverse, Euler round trips for all six orders, projection near/far mapping, geometry winding/normals), not pixels.
 - VERIFIED (headless Chromium 141, SwiftShader software GL): examples 01, 02 and 03 render with no console errors/warnings; 03 reports 6 draw calls / 2156 triangles, matching the hand-computed value; resize and portrait framing checked; shader and context-creation errors format correctly on a real driver.
 - VERIFIED: `npm run build` bundles (esbuild 0.27.7, found locally) and the example bundle runs.
-- UNVERIFIED: `npm install` from the registry, Firefox, Safari, Edge, Android Chrome, real GPU drivers, frame-time performance (the ~50-60 fps seen is software rendering), any comparison with other engines.
+- VERIFIED (local server): the script-tag + `prism.css` usage and the ESM build load the same 31 exports; examples/cdn renders with no console problems.
+- UNVERIFIED: the real jsDelivr URLs (the repo is not pushed and the tag `v0.2.0` does not exist on GitHub yet; this sandbox has no network), `npm install` from the registry, Firefox, Safari, Edge, Android Chrome, real GPU drivers, frame-time performance (the ~50-60 fps seen is software rendering), any comparison with other engines.
 
 ## Architecture Decisions
 - ES modules only, no TypeScript/framework, zero runtime dependencies. `src/` ships as-is; `dist/` is for script tags.
