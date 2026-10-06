@@ -32,9 +32,9 @@
 
 ## Verification status
 - VERIFIED: 119 unit tests pass on Node 22 (math incl. random-matrix inversion and all six Euler orders, scene graph, camera projection, geometry winding/normals, renderer state/program/buffer management and disposal). Renderer tests use a mock GL.
-- VERIFIED: examples 01 and 03 render correctly in headless Chromium 141 (software GL): correct perspective, depth ordering, transparency, wireframe, resize with devicePixelRatio; no console errors. `renderer.info` reported exactly the expected 6 draw calls / 2156 triangles for 03-scene.
+- VERIFIED: examples 01, 02 and 03 run in headless Chromium 141 (software GL) with no console errors; 02 starts on tap, scores and draws the ship with the rewritten Renderer. 01 and 03 render correctly: correct perspective, depth ordering, transparency, wireframe, resize with devicePixelRatio; no console errors. `renderer.info` reported exactly the expected 6 draw calls / 2156 triangles for 03-scene.
 - VERIFIED: `npm run build` bundles work (esbuild 0.27.7 found locally).
-- NOT VERIFIED: example 02 was not re-checked after the Renderer rewrite beyond its unchanged public API; `npm install` from the registry; Firefox, Safari, Edge, Android Chrome; real GPUs; any performance characteristic (the fps shown in 03-scene is software rendering in a sandbox and says nothing about real devices).
+- NOT VERIFIED: touch input on a real phone; game-over/restart flow of 02; `npm install` from the registry; Firefox, Safari, Edge, Android Chrome; real GPUs; any performance characteristic (the fps shown in 03-scene is software rendering in a sandbox and says nothing about real devices).
 
 ## Architecture Decisions
 - ES modules, no TypeScript, no dependencies; `src/` is shipped as-is, `dist/` is for script tags. Only `src/index.js` is public.
