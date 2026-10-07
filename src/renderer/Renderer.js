@@ -4,6 +4,8 @@ import { WebGLState } from './WebGLState.js';
 import { WebGLPrograms } from './WebGLPrograms.js';
 import { WebGLGeometries } from './WebGLGeometries.js';
 import { RenderList } from './RenderList.js';
+import { WebGLLights } from './WebGLLights.js';
+import { WebGLTextures } from './WebGLTextures.js';
 
 function createCanvas() {
 	if (typeof document === 'undefined') {
@@ -77,8 +79,8 @@ export class Renderer {
 
 		/** Counters for debugging and profiling; `render` values describe the last render() call. */
 		this.info = {
-			render: { frame: 0, calls: 0, triangles: 0, lines: 0 },
-			memory: { geometries: 0, programs: 0 }
+			render: { frame: 0, calls: 0, triangles: 0, lines: 0, lights: 0 },
+			memory: { geometries: 0, programs: 0, textures: 0 }
 		};
 
 		/** Clear the framebuffer at the start of render(). */
@@ -98,6 +100,8 @@ export class Renderer {
 		this._programs = new WebGLPrograms(gl, this.info);
 		this._geometries = new WebGLGeometries(gl, this.state, this.info);
 		this._list = new RenderList();
+		this._lights = new WebGLLights();
+		this._textures = new WebGLTextures(gl, this.info);
 
 		// Scratch objects reused every frame (no per-frame allocation).
 		this._colorScratch = new Color();
@@ -120,6 +124,7 @@ export class Renderer {
 			// All GL objects died with the old context: drop caches so they are recreated on demand.
 			this._programs.clear();
 			this._geometries.clear();
+			this._textures.clear();
 			this.state.reset();
 			this._applyState();
 			console.info('Prism.js: WebGL context restored.');
@@ -245,9 +250,12 @@ export class Renderer {
 		if (camera.parent === null) camera.updateMatrixWorld();
 
 		this.state.resetBindings();
+		this._textures.resetBindings();
 		this._list.reset();
+		this._lights.reset();
 		this._collect(scene, camera);
 		this._list.sort();
+		stats.lights = this._lights.count;
 
 		if (this.autoClear) {
 			const bg = scene.background;
@@ -271,6 +279,7 @@ export class Renderer {
 		if (this._disposed) return;
 		this._disposed = true;
 		this._geometries.dispose();
+		this._textures.dispose();
 		this._programs.dispose();
 		this.domElement.removeEventListener('webglcontextlost', this._onContextLost, false);
 		this.domElement.removeEventListener('webglcontextrestored', this._onContextRestored, false);
@@ -278,6 +287,7 @@ export class Renderer {
 
 	_collect(object, camera) {
 		if (!object.visible) return;
+		if (object.isLight) this._lights.add(object, camera.matrixWorldInverse);
 		if (object.isMesh) {
 			const material = object.material;
 			if (!material || !material.isMaterial) {
@@ -313,6 +323,16 @@ export class Renderer {
 				gl.uniformMatrix4fv(locations.uProjectionMatrix, false, this._projectionArray);
 				entry.frame = frame;
 			}
+			if (entry.definition.usesLights && entry.lightsFrame !== frame) { // lights too
+				this._lights.upload(gl, locations);
+				entry.lightsFrame = frame;
+			}
+			if (entry.definition.requiresNormals && geometry.attributes.normal === undefined) {
+				throw new Error(
+					`Prism.js: ${material.type} needs a "normal" attribute but the geometry has none.\n\n` +
+						'Call geometry.computeVertexNormals() or use a built-in geometry.'
+				);
+			}
 			this._modelViewArray.set(modelView.elements);
 			gl.uniformMatrix4fv(locations.uModelViewMatrix, false, this._modelViewArray);
 			if (entry.definition.usesNormalMatrix) {
@@ -321,6 +341,15 @@ export class Renderer {
 				gl.uniformMatrix3fv(locations.uNormalMatrix, false, this._normalArray);
 			}
 			entry.definition.uploadMaterial(gl, locations, material);
+			if (material.map && entry.definition.supportsMap) {
+				if (geometry.attributes.uv === undefined) {
+					throw new Error(
+						`Prism.js: ${material.type} has a texture map but the geometry has no "uv" attribute.`
+					);
+				}
+				this._textures.bind(material.map);
+				gl.uniform1i(locations.uMap, 0);
+			}
 
 			const record = this._geometries.get(geometry);
 			if (material.wireframe) {

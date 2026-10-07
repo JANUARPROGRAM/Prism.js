@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="utf-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1">
+	<link rel="icon" href="data:,">
+	<title>Prism.js browser checks</title>
+	<style>
+		body { font: 15px/1.5 system-ui, sans-serif; max-width: 44rem; margin: 1rem auto; padding: 0 1rem; }
+		#summary { font-weight: 600; margin: 0.5rem 0 1rem; }
+		ul { list-style: none; padding: 0; margin: 0; }
+		li { padding: 0.25rem 0; border-bottom: 1px solid #8884; }
+		.pass::before { content: "PASS  "; color: #1a7f37; font-weight: 600; }
+		.fail::before { content: "FAIL  "; color: #cf222e; font-weight: 600; }
+		pre { margin: 0.25rem 0 0; white-space: pre-wrap; color: #cf222e; font-size: 13px; }
+	</style>
+</head>
+<body>
+	<h1>Prism.js browser checks</h1>
+	<p>Renders small scenes with the real WebGL2 context and compares pixels. Serve the repo (<code>npm run dev</code>) and open <code>/tests/browser/</code>.</p>
+	<div id="summary">Running…</div>
+	<ul id="results"></ul>
+	<script type="module" src="./checks.js"></script>
+</body>
+</html>

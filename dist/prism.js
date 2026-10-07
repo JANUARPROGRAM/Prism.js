@@ -20,31 +20,51 @@ var Prism = (() => {
   // src/index.js
   var index_exports = {};
   __export(index_exports, {
+    AmbientLight: () => AmbientLight,
     BackSide: () => BackSide,
     BasicMaterial: () => BasicMaterial,
     BoxGeometry: () => BoxGeometry,
     BufferAttribute: () => BufferAttribute,
     BufferGeometry: () => BufferGeometry,
     Camera: () => Camera,
+    ClampToEdgeWrapping: () => ClampToEdgeWrapping,
     Color: () => Color,
     DEG2RAD: () => DEG2RAD,
+    DirectionalLight: () => DirectionalLight,
     DoubleSide: () => DoubleSide,
     Euler: () => Euler,
     FrontSide: () => FrontSide,
+    Group: () => Group,
+    LambertMaterial: () => LambertMaterial,
+    Light: () => Light,
+    LinearFilter: () => LinearFilter,
+    LinearMipmapLinearFilter: () => LinearMipmapLinearFilter,
+    LinearMipmapNearestFilter: () => LinearMipmapNearestFilter,
+    MTLLoader: () => MTLLoader,
     Material: () => Material,
+    MaterialLibrary: () => MaterialLibrary,
     Matrix3: () => Matrix3,
     Matrix4: () => Matrix4,
     Mesh: () => Mesh,
+    MirroredRepeatWrapping: () => MirroredRepeatWrapping,
+    NearestFilter: () => NearestFilter,
+    NearestMipmapLinearFilter: () => NearestMipmapLinearFilter,
+    NearestMipmapNearestFilter: () => NearestMipmapNearestFilter,
     NormalMaterial: () => NormalMaterial,
+    OBJLoader: () => OBJLoader,
     Object3D: () => Object3D,
     OrthographicCamera: () => OrthographicCamera,
     PerspectiveCamera: () => PerspectiveCamera,
     PlaneGeometry: () => PlaneGeometry,
+    PointLight: () => PointLight,
     Quaternion: () => Quaternion,
     RAD2DEG: () => RAD2DEG,
     Renderer: () => Renderer,
+    RepeatWrapping: () => RepeatWrapping,
     Scene: () => Scene,
     SphereGeometry: () => SphereGeometry,
+    Texture: () => Texture,
+    TextureLoader: () => TextureLoader,
     Vector2: () => Vector2,
     Vector3: () => Vector3,
     Vector4: () => Vector4,
@@ -57,6 +77,15 @@ var Prism = (() => {
   var FrontSide = 0;
   var BackSide = 1;
   var DoubleSide = 2;
+  var NearestFilter = 9728;
+  var LinearFilter = 9729;
+  var NearestMipmapNearestFilter = 9984;
+  var LinearMipmapNearestFilter = 9985;
+  var NearestMipmapLinearFilter = 9986;
+  var LinearMipmapLinearFilter = 9987;
+  var ClampToEdgeWrapping = 33071;
+  var RepeatWrapping = 10497;
+  var MirroredRepeatWrapping = 33648;
 
   // src/math/MathUtils.js
   var DEG2RAD = Math.PI / 180;
@@ -1431,6 +1460,11 @@ var Prism = (() => {
   };
   Scene.prototype.isScene = true;
 
+  // src/core/Group.js
+  var Group = class extends Object3D {
+  };
+  Group.prototype.isGroup = true;
+
   // src/geometry/BufferAttribute.js
   var BufferAttribute = class {
     /**
@@ -1612,6 +1646,7 @@ var Prism = (() => {
       this.type = "BasicMaterial";
       this.color = new Color(1, 1, 1);
       this.wireframe = false;
+      this.map = null;
       this.setValues(parameters);
     }
     setValues(values = {}) {
@@ -1871,6 +1906,52 @@ var Prism = (() => {
     }
   };
 
+  // src/lights/Light.js
+  var Light = class extends Object3D {
+    /** @param {number|string|Color} color @param {number} intensity Must be >= 0. */
+    constructor(color = 16777215, intensity = 1) {
+      super();
+      if (!(intensity >= 0) || !Number.isFinite(intensity)) {
+        throw new RangeError(`Prism.js: Light intensity must be a finite number >= 0, received ${String(intensity)}.`);
+      }
+      this.color = new Color(color);
+      this.intensity = intensity;
+    }
+  };
+  Light.prototype.isLight = true;
+
+  // src/lights/AmbientLight.js
+  var AmbientLight = class extends Light {
+  };
+  AmbientLight.prototype.isAmbientLight = true;
+
+  // src/lights/DirectionalLight.js
+  var DirectionalLight = class extends Light {
+    constructor(color, intensity) {
+      super(color, intensity);
+      this.position.set(0, 1, 0);
+      this.target = new Object3D();
+    }
+  };
+  DirectionalLight.prototype.isDirectionalLight = true;
+
+  // src/lights/PointLight.js
+  var PointLight = class extends Light {
+    /** @param {number} distance 0 = unlimited. @param {number} decay Falloff exponent, >= 0. */
+    constructor(color, intensity, distance = 0, decay = 2) {
+      super(color, intensity);
+      if (!(distance >= 0) || !Number.isFinite(distance)) {
+        throw new RangeError(`Prism.js: PointLight distance must be a finite number >= 0, received ${String(distance)}.`);
+      }
+      if (!(decay >= 0) || !Number.isFinite(decay)) {
+        throw new RangeError(`Prism.js: PointLight decay must be a finite number >= 0, received ${String(decay)}.`);
+      }
+      this.distance = distance;
+      this.decay = decay;
+    }
+  };
+  PointLight.prototype.isPointLight = true;
+
   // src/materials/NormalMaterial.js
   var NormalMaterial = class extends Material {
     constructor(parameters = {}) {
@@ -1881,6 +1962,490 @@ var Prism = (() => {
     }
   };
   NormalMaterial.prototype.isNormalMaterial = true;
+
+  // src/materials/LambertMaterial.js
+  var LambertMaterial = class extends Material {
+    constructor(parameters = {}) {
+      super();
+      this.type = "LambertMaterial";
+      this.color = new Color(1, 1, 1);
+      this.wireframe = false;
+      this.map = null;
+      this.setValues(parameters);
+    }
+    setValues(values = {}) {
+      const { color, ...rest } = values;
+      if (color !== void 0) this.color.set(color);
+      return super.setValues(rest);
+    }
+  };
+  LambertMaterial.prototype.isLambertMaterial = true;
+
+  // src/textures/Texture.js
+  var _nextId4 = 1;
+  var Texture = class {
+    constructor(image = null) {
+      this.id = _nextId4++;
+      this.name = "";
+      this.image = image;
+      this.wrapS = ClampToEdgeWrapping;
+      this.wrapT = ClampToEdgeWrapping;
+      this.magFilter = LinearFilter;
+      this.minFilter = LinearMipmapLinearFilter;
+      this.generateMipmaps = true;
+      this.flipY = true;
+      this.version = 0;
+      this._disposeListeners = /* @__PURE__ */ new Set();
+    }
+    set needsUpdate(value) {
+      if (value) this.version++;
+    }
+    addDisposeListener(listener) {
+      this._disposeListeners.add(listener);
+    }
+    removeDisposeListener(listener) {
+      this._disposeListeners.delete(listener);
+    }
+    /** Frees the GPU copy (it is re-uploaded if the texture is used again). */
+    dispose() {
+      for (const listener of [...this._disposeListeners]) listener(this);
+    }
+  };
+  Texture.prototype.isTexture = true;
+
+  // src/loaders/TextureLoader.js
+  var TextureLoader = class {
+    constructor() {
+      this.crossOrigin = "anonymous";
+      this._urlModifier = null;
+      this._createImage = () => {
+        if (typeof Image === "undefined") {
+          throw new Error("Prism.js: TextureLoader needs a browser environment (the Image class is not available).");
+        }
+        return new Image();
+      };
+    }
+    /** `fn(url) => url` is applied to every URL before loading (e.g. to map names to data: URLs). */
+    setURLModifier(fn) {
+      this._urlModifier = fn;
+      return this;
+    }
+    /**
+     * Returns the Texture immediately; its `image` is filled in when loading finishes
+     * (until then it renders as white). Errors go to `onError`, or console.error if omitted.
+     */
+    load(url, onLoad, onError) {
+      const texture = new Texture();
+      texture.name = url;
+      const image = this._createImage();
+      image.crossOrigin = this.crossOrigin;
+      image.onload = () => {
+        texture.image = image;
+        texture.needsUpdate = true;
+        if (onLoad) onLoad(texture);
+      };
+      image.onerror = () => {
+        const error = new Error(`Prism.js: Failed to load texture "${url}".`);
+        if (onError) onError(error);
+        else console.error(error);
+      };
+      image.src = this._urlModifier ? this._urlModifier(url) : url;
+      return texture;
+    }
+    /** Promise version: resolves with the Texture once the image has loaded. */
+    loadAsync(url) {
+      return new Promise((resolve, reject) => {
+        this.load(url, resolve, reject);
+      });
+    }
+  };
+
+  // src/loaders/resolveURL.js
+  function resolveURL(base, ref) {
+    ref = ref.trim().replace(/\\/g, "/");
+    if (/^(?:[a-z][a-z0-9+.-]*:|\/)/i.test(ref)) return ref;
+    const clean = String(base).split(/[?#]/)[0];
+    const slash = clean.lastIndexOf("/");
+    return (slash === -1 ? "" : clean.slice(0, slash + 1)) + ref;
+  }
+
+  // src/loaders/fetchText.js
+  async function fetchText(url, what = "file") {
+    if (typeof fetch !== "function") {
+      throw new Error(`Prism.js: fetch() is not available, cannot load ${what} "${url}".`);
+    }
+    let response;
+    try {
+      response = await fetch(url);
+    } catch (cause) {
+      throw new Error(`Prism.js: Failed to load ${what} "${url}": ${cause.message}`, { cause });
+    }
+    if (!response.ok) {
+      throw new Error(
+        `Prism.js: Failed to load ${what} "${url}" (HTTP ${response.status}${response.statusText ? " " + response.statusText : ""}).`
+      );
+    }
+    return response.text();
+  }
+
+  // src/loaders/MTLLoader.js
+  var NUMERIC_OPTIONS = { "-s": 3, "-o": 3, "-t": 3, "-mm": 2, "-bm": 1, "-blendu": 1, "-blendv": 1, "-texres": 1 };
+  var WORD_OPTIONS = /* @__PURE__ */ new Set(["-cc", "-clamp", "-imfchan", "-type"]);
+  var DEFAULT_DIFFUSE = [0.8, 0.8, 0.8];
+  var MaterialLibrary = class {
+    constructor() {
+      this.materials = /* @__PURE__ */ Object.create(null);
+      this.textures = [];
+    }
+    get(name) {
+      return this.materials[name];
+    }
+    get names() {
+      return Object.keys(this.materials);
+    }
+    /** Copies the entries of another library into this one (later names win). */
+    add(other) {
+      Object.assign(this.materials, other.materials);
+      this.textures.push(...other.textures);
+      return this;
+    }
+    /** Disposes every material and texture of the library. */
+    dispose() {
+      for (const material of Object.values(this.materials)) material.dispose();
+      for (const texture of this.textures) texture.dispose();
+    }
+  };
+  function fail(line, message) {
+    return new Error(`Prism.js: MTL parse error at line ${line}: ${message}`);
+  }
+  function numbers(rest, count, line, keyword) {
+    const values = rest.split(/\s+/).filter((t) => t !== "").slice(0, count).map(Number);
+    if (values.length === 0 || values.some((v) => !Number.isFinite(v))) {
+      throw fail(line, `"${keyword} ${rest}" must be followed by ${count} number(s).`);
+    }
+    return values;
+  }
+  function mapFileName(rest) {
+    const tokens = rest.split(/\s+/);
+    let i = 0;
+    while (i < tokens.length && tokens[i].startsWith("-")) {
+      const option = tokens[i].toLowerCase();
+      if (option in NUMERIC_OPTIONS) {
+        let taken = 0;
+        i++;
+        while (taken < NUMERIC_OPTIONS[option] && i < tokens.length && tokens[i] !== "" && Number.isFinite(Number(tokens[i]))) {
+          i++;
+          taken++;
+        }
+      } else if (WORD_OPTIONS.has(option)) {
+        i += 2;
+      } else {
+        break;
+      }
+    }
+    return tokens.slice(i).join(" ");
+  }
+  var MTLLoader = class {
+    constructor() {
+      this.side = FrontSide;
+      this.loadTextures = true;
+      this.textureLoader = new TextureLoader();
+      this._urlModifier = null;
+    }
+    /** `fn(url) => url` is applied to every URL this loader (and its textures) fetches. */
+    setURLModifier(fn) {
+      this._urlModifier = fn;
+      this.textureLoader.setURLModifier(fn);
+      return this;
+    }
+    async loadAsync(url) {
+      const text = await fetchText(this._urlModifier ? this._urlModifier(url) : url, "MTL file");
+      return this.parse(text, url);
+    }
+    load(url, onLoad, onError) {
+      this.loadAsync(url).then(onLoad, (error) => {
+        if (onError) onError(error);
+        else console.error(error);
+      });
+    }
+    /**
+     * @param {string} text Contents of the .mtl file.
+     * @param {string} [basePath] URL of the .mtl file; texture names are resolved against it.
+     * @returns {MaterialLibrary}
+     */
+    parse(text, basePath = "") {
+      const definitions = [];
+      let current = null;
+      const lines = text.split(/\r?\n/);
+      for (let n = 0; n < lines.length; n++) {
+        const line = lines[n].trim();
+        if (line === "" || line[0] === "#") continue;
+        const split = line.search(/\s/);
+        const keyword = (split === -1 ? line : line.slice(0, split)).toLowerCase();
+        const rest = split === -1 ? "" : line.slice(split).trim();
+        if (keyword === "newmtl") {
+          current = { name: rest, diffuse: DEFAULT_DIFFUSE, opacity: 1, opacityFromD: false, map: null };
+          definitions.push(current);
+          continue;
+        }
+        if (current === null) continue;
+        if (keyword === "kd") {
+          if (/^(spectral|xyz)\b/i.test(rest)) continue;
+          const v = numbers(rest, 3, n + 1, "Kd");
+          current.diffuse = v.length === 1 ? [v[0], v[0], v[0]] : v;
+        } else if (keyword === "d") {
+          const [d] = numbers(rest.replace(/^-halo\s+/i, ""), 1, n + 1, "d");
+          current.opacity = d;
+          current.opacityFromD = true;
+        } else if (keyword === "tr") {
+          const [tr] = numbers(rest, 1, n + 1, "Tr");
+          if (!current.opacityFromD) current.opacity = 1 - tr;
+        } else if (keyword === "map_kd") {
+          const file = mapFileName(rest);
+          if (file !== "") current.map = file;
+        }
+      }
+      const library = new MaterialLibrary();
+      for (const def of definitions) {
+        const [r, g, b] = def.diffuse;
+        const opacity = Math.min(1, Math.max(0, def.opacity));
+        const material = new LambertMaterial({ opacity, transparent: opacity < 1, side: this.side });
+        material.color.setRGB(r, g, b);
+        material.name = def.name;
+        if (def.map !== null && this.loadTextures) {
+          const url = resolveURL(basePath, def.map);
+          const texture = this.textureLoader.load(url, void 0, () => {
+            console.warn(`Prism.js: Texture "${url}" of material "${def.name}" failed to load; its color is used instead.`);
+          });
+          texture.wrapS = texture.wrapT = RepeatWrapping;
+          material.map = texture;
+          library.textures.push(texture);
+        }
+        library.materials[def.name] = material;
+      }
+      return library;
+    }
+  };
+
+  // src/loaders/OBJLoader.js
+  var DEFAULT_COLOR = 13421772;
+  function fail2(line, message) {
+    return new Error(`Prism.js: OBJ parse error at line ${line}: ${message}`);
+  }
+  function floats(rest, min, line, keyword) {
+    const values = rest.split(/\s+/).filter((t) => t !== "").map(Number);
+    if (values.length < min || values.slice(0, min).some((v) => !Number.isFinite(v))) {
+      throw fail2(line, `"${keyword} ${rest}" needs at least ${min} number(s).`);
+    }
+    return values;
+  }
+  function parseOBJ(text) {
+    const positions = [], uvs = [], normals = [];
+    const mtllibs = [];
+    const builders = /* @__PURE__ */ new Map();
+    let objectName = "", materialName = "", builder = null;
+    const currentBuilder = () => {
+      if (builder === null) {
+        const key = `${objectName}\0${materialName}`;
+        builder = builders.get(key);
+        if (builder === void 0) {
+          builder = {
+            name: objectName,
+            material: materialName,
+            positions: [],
+            uvs: [],
+            normals: [],
+            indices: [],
+            lookup: /* @__PURE__ */ new Map(),
+            vertexCount: 0,
+            uvCorners: 0,
+            missingNormals: false
+          };
+          builders.set(key, builder);
+        }
+      }
+      return builder;
+    };
+    const resolve = (token, count, line, what) => {
+      const raw = parseInt(token, 10);
+      if (!Number.isInteger(raw) || raw === 0) throw fail2(line, `invalid ${what} index "${token}".`);
+      const index = raw > 0 ? raw - 1 : count + raw;
+      if (index < 0 || index >= count) {
+        throw fail2(line, `${what} index ${raw} is out of range (the file defines ${count} ${what} entries before this line).`);
+      }
+      return index;
+    };
+    const lines = text.split(/\r?\n/);
+    for (let n = 0; n < lines.length; n++) {
+      const line = lines[n].trim();
+      if (line === "" || line[0] === "#") continue;
+      const split = line.search(/\s/);
+      const keyword = split === -1 ? line : line.slice(0, split);
+      const rest = split === -1 ? "" : line.slice(split).trim();
+      switch (keyword) {
+        case "v": {
+          const v = floats(rest, 3, n + 1, "v");
+          positions.push(v[0], v[1], v[2]);
+          break;
+        }
+        case "vt": {
+          const v = floats(rest, 1, n + 1, "vt");
+          uvs.push(v[0], v[1] ?? 0);
+          break;
+        }
+        case "vn": {
+          const v = floats(rest, 3, n + 1, "vn");
+          normals.push(v[0], v[1], v[2]);
+          break;
+        }
+        case "o":
+        case "g":
+          objectName = rest;
+          builder = null;
+          break;
+        case "usemtl":
+          materialName = rest;
+          builder = null;
+          break;
+        case "mtllib":
+          if (rest !== "") mtllibs.push(rest);
+          break;
+        case "f": {
+          const corners = rest.split(/\s+/);
+          if (corners.length < 3) throw fail2(n + 1, `a face needs at least 3 vertices, found ${corners.length}.`);
+          const b = currentBuilder();
+          const face = [];
+          for (const corner of corners) {
+            const parts = corner.split("/");
+            const vi = resolve(parts[0], positions.length / 3, n + 1, "vertex");
+            const ti = parts.length > 1 && parts[1] !== "" ? resolve(parts[1], uvs.length / 2, n + 1, "texture coordinate") : -1;
+            const ni = parts.length > 2 && parts[2] !== "" ? resolve(parts[2], normals.length / 3, n + 1, "normal") : -1;
+            let output;
+            const key = ni === -1 ? null : `${vi}/${ti}/${ni}`;
+            if (key !== null) output = b.lookup.get(key);
+            if (output === void 0) {
+              output = b.vertexCount++;
+              if (key !== null) b.lookup.set(key, output);
+              b.positions.push(positions[vi * 3], positions[vi * 3 + 1], positions[vi * 3 + 2]);
+              if (ti === -1) b.uvs.push(0, 0);
+              else {
+                b.uvs.push(uvs[ti * 2], uvs[ti * 2 + 1]);
+                b.uvCorners++;
+              }
+              if (ni === -1) {
+                b.missingNormals = true;
+                b.normals.push(0, 0, 0);
+              } else b.normals.push(normals[ni * 3], normals[ni * 3 + 1], normals[ni * 3 + 2]);
+            }
+            face.push(output);
+          }
+          for (let i = 1; i < face.length - 1; i++) b.indices.push(face[0], face[i], face[i + 1]);
+          break;
+        }
+        default:
+          break;
+      }
+    }
+    const objects = [];
+    let vertexCount = 0, triangleCount = 0;
+    for (const b of builders.values()) {
+      if (b.indices.length === 0) continue;
+      vertexCount += b.vertexCount;
+      triangleCount += b.indices.length / 3;
+      objects.push({
+        name: b.name,
+        material: b.material,
+        positions: new Float32Array(b.positions),
+        normals: b.missingNormals ? null : new Float32Array(b.normals),
+        uvs: b.uvCorners > 0 ? new Float32Array(b.uvs) : null,
+        indices: b.indices
+      });
+    }
+    return { objects, mtllibs, vertexCount, triangleCount };
+  }
+  var OBJLoader = class {
+    constructor() {
+      this.materials = null;
+      this.autoLoadMaterials = true;
+      this.side = FrontSide;
+      this.mtlLoader = new MTLLoader();
+      this._urlModifier = null;
+    }
+    setMaterials(library) {
+      this.materials = library;
+      return this;
+    }
+    /** `fn(url) => url` is applied to every URL fetched (obj, mtl, textures). */
+    setURLModifier(fn) {
+      this._urlModifier = fn;
+      this.mtlLoader.setURLModifier(fn);
+      return this;
+    }
+    async loadAsync(url) {
+      const text = await fetchText(this._urlModifier ? this._urlModifier(url) : url, "OBJ file");
+      let library = this.materials;
+      if (library === null && this.autoLoadMaterials) library = await this._loadMaterialLibraries(text, url);
+      return this.parse(text, library);
+    }
+    load(url, onLoad, onError) {
+      this.loadAsync(url).then(onLoad, (error) => {
+        if (onError) onError(error);
+        else console.error(error);
+      });
+    }
+    async _loadMaterialLibraries(text, objUrl) {
+      const names = [...text.matchAll(/^[ \t]*mtllib[ \t]+(.+?)[ \t]*$/gm)].map((m) => m[1]);
+      if (names.length === 0) return null;
+      this.mtlLoader.side = this.side;
+      const merged = new MaterialLibrary();
+      for (const name of names) {
+        try {
+          merged.add(await this.mtlLoader.loadAsync(resolveURL(objUrl, name)));
+        } catch (error) {
+          console.warn(`Prism.js: Could not load material library "${name}" (${error.message}); default materials are used.`);
+        }
+      }
+      return merged;
+    }
+    /**
+     * @param {string} text Contents of the .obj file.
+     * @param {MaterialLibrary|null} [materials] Defaults to the library set with setMaterials().
+     * @returns {Group}
+     */
+    parse(text, materials = this.materials) {
+      const parsed = parseOBJ(text);
+      const group = new Group();
+      group.userData.obj = {
+        materialLibraries: parsed.mtllibs,
+        vertexCount: parsed.vertexCount,
+        triangleCount: parsed.triangleCount
+      };
+      let fallback = null;
+      const warned = /* @__PURE__ */ new Set();
+      const materialFor = (name) => {
+        const found = name === "" || !materials ? void 0 : materials.get(name);
+        if (found !== void 0) return found;
+        if (name !== "" && materials && !warned.has(name)) {
+          warned.add(name);
+          console.warn(`Prism.js: Material "${name}" is not defined in the loaded MTL; a default gray material is used.`);
+        }
+        if (fallback === null) fallback = new LambertMaterial({ color: DEFAULT_COLOR, side: this.side });
+        return fallback;
+      };
+      for (const o of parsed.objects) {
+        const geometry = new BufferGeometry();
+        geometry.setAttribute("position", new BufferAttribute(o.positions, 3));
+        geometry.setIndex(o.indices);
+        if (o.uvs) geometry.setAttribute("uv", new BufferAttribute(o.uvs, 2));
+        if (o.normals) geometry.setAttribute("normal", new BufferAttribute(o.normals, 3));
+        else geometry.computeVertexNormals();
+        const mesh = new Mesh(geometry, materialFor(o.material));
+        mesh.name = o.name;
+        group.add(mesh);
+      }
+      return group;
+    }
+  };
 
   // src/renderer/WebGLState.js
   var WebGLState = class {
@@ -2107,21 +2672,38 @@ ${name}`
 
   // src/renderer/shaders/basic.js
   var basicShader = {
-    uniforms: ["uModelViewMatrix", "uProjectionMatrix", "uColor"],
+    uniforms: ["uModelViewMatrix", "uProjectionMatrix", "uColor", "uMap"],
     usesNormalMatrix: false,
+    supportsMap: true,
+    // compiled again with USE_MAP when material.map is set
     vertexShader: `#version 300 es
 layout(location = 0) in vec3 aPosition;
+#ifdef USE_MAP
+layout(location = 2) in vec2 aUv;
+out vec2 vUv;
+#endif
 uniform mat4 uModelViewMatrix;
 uniform mat4 uProjectionMatrix;
 void main() {
+#ifdef USE_MAP
+	vUv = aUv;
+#endif
 	gl_Position = uProjectionMatrix * uModelViewMatrix * vec4(aPosition, 1.0);
 }`,
     fragmentShader: `#version 300 es
 precision mediump float;
+#ifdef USE_MAP
+in vec2 vUv;
+uniform sampler2D uMap;
+#endif
 uniform vec4 uColor;
 out vec4 outColor;
 void main() {
-	outColor = uColor;
+	vec4 base = uColor;
+#ifdef USE_MAP
+	base *= texture(uMap, vUv);
+#endif
+	outColor = base;
 }`,
     uploadMaterial(gl, locations, material) {
       const c = material.color;
@@ -2133,6 +2715,7 @@ void main() {
   var normalShader = {
     uniforms: ["uModelViewMatrix", "uProjectionMatrix", "uNormalMatrix", "uOpacity"],
     usesNormalMatrix: true,
+    requiresNormals: true,
     vertexShader: `#version 300 es
 layout(location = 0) in vec3 aPosition;
 layout(location = 1) in vec3 aNormal;
@@ -2157,11 +2740,189 @@ void main() {
     }
   };
 
+  // src/renderer/WebGLLights.js
+  var MAX_DIRECTIONAL_LIGHTS = 4;
+  var MAX_POINT_LIGHTS = 4;
+  var _a = new Vector3();
+  var _b = new Vector3();
+  var WebGLLights = class {
+    constructor() {
+      this.ambient = new Float32Array(3);
+      this.directionalCount = 0;
+      this.directionalDirection = new Float32Array(MAX_DIRECTIONAL_LIGHTS * 3);
+      this.directionalColor = new Float32Array(MAX_DIRECTIONAL_LIGHTS * 3);
+      this.pointCount = 0;
+      this.pointPosition = new Float32Array(MAX_POINT_LIGHTS * 3);
+      this.pointColor = new Float32Array(MAX_POINT_LIGHTS * 3);
+      this.pointParams = new Float32Array(MAX_POINT_LIGHTS * 2);
+      this.count = 0;
+      this._warned = false;
+    }
+    reset() {
+      this.ambient.fill(0);
+      this.directionalCount = 0;
+      this.pointCount = 0;
+      this.count = 0;
+    }
+    /** @param {Matrix4} view The camera's world -> view matrix. */
+    add(light, view) {
+      const color = light.color, k = light.intensity;
+      if (light.isAmbientLight) {
+        this.ambient[0] += color.r * k;
+        this.ambient[1] += color.g * k;
+        this.ambient[2] += color.b * k;
+      } else if (light.isDirectionalLight) {
+        const i = this.directionalCount;
+        if (i >= MAX_DIRECTIONAL_LIGHTS) return this._overflow("DirectionalLights", MAX_DIRECTIONAL_LIGHTS);
+        _a.setFromMatrixPosition(light.matrixWorld);
+        light.target.updateWorldMatrix(true);
+        _b.setFromMatrixPosition(light.target.matrixWorld);
+        _a.sub(_b);
+        if (_a.lengthSq() === 0) _a.set(0, 1, 0);
+        _a.normalize().transformDirection(view).toArray(this.directionalDirection, i * 3);
+        this.directionalColor[i * 3] = color.r * k;
+        this.directionalColor[i * 3 + 1] = color.g * k;
+        this.directionalColor[i * 3 + 2] = color.b * k;
+        this.directionalCount++;
+      } else if (light.isPointLight) {
+        const i = this.pointCount;
+        if (i >= MAX_POINT_LIGHTS) return this._overflow("PointLights", MAX_POINT_LIGHTS);
+        _a.setFromMatrixPosition(light.matrixWorld).applyMatrix4(view).toArray(this.pointPosition, i * 3);
+        this.pointColor[i * 3] = color.r * k;
+        this.pointColor[i * 3 + 1] = color.g * k;
+        this.pointColor[i * 3 + 2] = color.b * k;
+        this.pointParams[i * 2] = light.distance;
+        this.pointParams[i * 2 + 1] = light.decay;
+        this.pointCount++;
+      } else {
+        throw new TypeError(
+          `Prism.js: Unsupported light type "${light.constructor.name}". Use AmbientLight, DirectionalLight or PointLight.`
+        );
+      }
+      this.count++;
+    }
+    upload(gl, locations) {
+      gl.uniform3fv(locations.uAmbientColor, this.ambient);
+      gl.uniform1i(locations.uDirCount, this.directionalCount);
+      gl.uniform3fv(locations.uDirDirection, this.directionalDirection);
+      gl.uniform3fv(locations.uDirColor, this.directionalColor);
+      gl.uniform1i(locations.uPointCount, this.pointCount);
+      gl.uniform3fv(locations.uPointPosition, this.pointPosition);
+      gl.uniform3fv(locations.uPointColor, this.pointColor);
+      gl.uniform2fv(locations.uPointParams, this.pointParams);
+    }
+    _overflow(name, max) {
+      if (!this._warned) {
+        this._warned = true;
+        console.warn(`Prism.js: Only the first ${max} ${name} are used; additional ones are ignored.`);
+      }
+    }
+  };
+
+  // src/renderer/shaders/lambert.js
+  var lambertShader = {
+    uniforms: [
+      "uModelViewMatrix",
+      "uProjectionMatrix",
+      "uNormalMatrix",
+      "uColor",
+      "uMap",
+      "uAmbientColor",
+      "uDirCount",
+      "uDirDirection",
+      "uDirColor",
+      "uPointCount",
+      "uPointPosition",
+      "uPointColor",
+      "uPointParams"
+    ],
+    usesNormalMatrix: true,
+    usesLights: true,
+    requiresNormals: true,
+    supportsMap: true,
+    vertexShader: `#version 300 es
+layout(location = 0) in vec3 aPosition;
+layout(location = 1) in vec3 aNormal;
+#ifdef USE_MAP
+layout(location = 2) in vec2 aUv;
+out vec2 vUv;
+#endif
+uniform mat4 uModelViewMatrix;
+uniform mat4 uProjectionMatrix;
+uniform mat3 uNormalMatrix;
+out vec3 vNormal;
+out vec3 vViewPosition;
+void main() {
+#ifdef USE_MAP
+	vUv = aUv;
+#endif
+	vec4 viewPosition = uModelViewMatrix * vec4(aPosition, 1.0);
+	vNormal = uNormalMatrix * aNormal;
+	vViewPosition = viewPosition.xyz;
+	gl_Position = uProjectionMatrix * viewPosition;
+}`,
+    // All light data is in VIEW space. Directions point from the surface toward the light.
+    fragmentShader: `#version 300 es
+precision highp float;
+#define MAX_DIR ${MAX_DIRECTIONAL_LIGHTS}
+#define MAX_POINT ${MAX_POINT_LIGHTS}
+in vec3 vNormal;
+in vec3 vViewPosition;
+#ifdef USE_MAP
+in vec2 vUv;
+uniform sampler2D uMap;
+#endif
+uniform vec4 uColor;
+uniform vec3 uAmbientColor;
+uniform int uDirCount;
+uniform vec3 uDirDirection[MAX_DIR];
+uniform vec3 uDirColor[MAX_DIR];
+uniform int uPointCount;
+uniform vec3 uPointPosition[MAX_POINT];
+uniform vec3 uPointColor[MAX_POINT];
+uniform vec2 uPointParams[MAX_POINT];
+out vec4 outColor;
+void main() {
+	vec3 n = normalize(vNormal);
+	if (!gl_FrontFacing) n = -n;
+
+	vec3 light = uAmbientColor;
+	for (int i = 0; i < MAX_DIR; i++) {
+		if (i >= uDirCount) break;
+		light += uDirColor[i] * max(dot(n, uDirDirection[i]), 0.0);
+	}
+	for (int i = 0; i < MAX_POINT; i++) {
+		if (i >= uPointCount) break;
+		vec3 toLight = uPointPosition[i] - vViewPosition;
+		float dist = length(toLight);
+		float range = uPointParams[i].x;
+		float falloff = range > 0.0 ? pow(clamp(1.0 - dist / range, 0.0, 1.0), uPointParams[i].y) : 1.0;
+		light += uPointColor[i] * max(dot(n, toLight / max(dist, 1e-4)), 0.0) * falloff;
+	}
+	vec4 base = uColor;
+#ifdef USE_MAP
+	base *= texture(uMap, vUv);
+#endif
+	outColor = vec4(base.rgb * light, base.a);
+}`,
+    uploadMaterial(gl, locations, material) {
+      const c = material.color;
+      gl.uniform4f(locations.uColor, c.r, c.g, c.b, material.opacity);
+    }
+  };
+
   // src/renderer/WebGLPrograms.js
   var SHADER_LIBRARY = {
     BasicMaterial: basicShader,
-    NormalMaterial: normalShader
+    NormalMaterial: normalShader,
+    LambertMaterial: lambertShader
   };
+  function withDefines(source, defines) {
+    if (defines.length === 0) return source;
+    const newline = source.indexOf("\n");
+    return `${source.slice(0, newline + 1)}${defines.map((d) => `#define ${d}
+`).join("")}${source.slice(newline + 1)}`;
+  }
   var WebGLPrograms = class {
     constructor(gl, info) {
       this.gl = gl;
@@ -2169,9 +2930,11 @@ void main() {
       this._entries = /* @__PURE__ */ new Map();
     }
     get(material) {
-      let entry = this._entries.get(material.type);
+      const definition = SHADER_LIBRARY[material.type];
+      const useMap = definition !== void 0 && definition.supportsMap === true && Boolean(material.map);
+      const key = useMap ? `${material.type}:map` : material.type;
+      let entry = this._entries.get(key);
       if (entry === void 0) {
-        const definition = SHADER_LIBRARY[material.type];
         if (definition === void 0) {
           throw new Error(
             `Prism.js: No shader is available for material type "${material.type}".
@@ -2179,15 +2942,16 @@ void main() {
 Built-in material types: ${Object.keys(SHADER_LIBRARY).join(", ")}.`
           );
         }
+        const defines = useMap ? ["USE_MAP"] : [];
         const program = new WebGLProgram(this.gl, {
-          name: material.type,
-          vertexShader: definition.vertexShader,
-          fragmentShader: definition.fragmentShader
+          name: key,
+          vertexShader: withDefines(definition.vertexShader, defines),
+          fragmentShader: withDefines(definition.fragmentShader, defines)
         });
         const locations = /* @__PURE__ */ Object.create(null);
         for (const name of definition.uniforms) locations[name] = program.getUniformLocation(name);
-        entry = { program, definition, locations, frame: -1 };
-        this._entries.set(material.type, entry);
+        entry = { program, definition, locations, frame: -1, lightsFrame: -1 };
+        this._entries.set(key, entry);
         this.info.memory.programs = this._entries.size;
       }
       return entry;
@@ -2436,6 +3200,118 @@ Built-in material types: ${Object.keys(SHADER_LIBRARY).join(", ")}.`
     }
   };
 
+  // src/renderer/WebGLTextures.js
+  var WHITE_PIXEL = new Uint8Array([255, 255, 255, 255]);
+  function isMipmapFilter(filter) {
+    return filter >= 9984 && filter <= 9987;
+  }
+  function isImageReady(image) {
+    if (!image) return false;
+    if (image.data) return image.width > 0 && image.height > 0;
+    if (image.complete === false) return false;
+    const width = image.naturalWidth ?? image.videoWidth ?? image.width;
+    return width > 0;
+  }
+  var WebGLTextures = class {
+    constructor(gl, info) {
+      this.gl = gl;
+      this.info = info;
+      this._records = /* @__PURE__ */ new Map();
+      this._bound = null;
+      this._maxSize = gl.getParameter(gl.MAX_TEXTURE_SIZE);
+      this._onTextureDispose = (texture) => this.release(texture);
+    }
+    /** Forget what is bound (other code may have changed it) and select unit 0. */
+    resetBindings() {
+      this._bound = null;
+      this.gl.activeTexture(this.gl.TEXTURE0);
+    }
+    /** Binds `texture` to unit 0, uploading or refreshing it first if needed. */
+    bind(texture) {
+      const gl = this.gl;
+      const record = this._get(texture);
+      if (this._bound !== record.glTexture) {
+        gl.bindTexture(gl.TEXTURE_2D, record.glTexture);
+        this._bound = record.glTexture;
+      }
+    }
+    _get(texture) {
+      let record = this._records.get(texture);
+      if (record === void 0) {
+        record = { glTexture: this.gl.createTexture(), version: -1, ready: false };
+        this._records.set(texture, record);
+        texture.addDisposeListener(this._onTextureDispose);
+        this.info.memory.textures = this._records.size;
+      }
+      if (isImageReady(texture.image)) {
+        if (!record.ready || record.version !== texture.version) this._upload(record, texture);
+      } else if (record.version === -1) {
+        this._uploadPlaceholder(record);
+      }
+      return record;
+    }
+    _bindForUpload(record) {
+      this.gl.bindTexture(this.gl.TEXTURE_2D, record.glTexture);
+      this._bound = record.glTexture;
+    }
+    _uploadPlaceholder(record) {
+      const gl = this.gl;
+      this._bindForUpload(record);
+      gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, false);
+      gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, 1, 1, 0, gl.RGBA, gl.UNSIGNED_BYTE, WHITE_PIXEL);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+      record.version = 0;
+      record.ready = false;
+    }
+    _upload(record, texture) {
+      const gl = this.gl, image = texture.image;
+      const width = image.data ? image.width : image.naturalWidth ?? image.videoWidth ?? image.width;
+      const height = image.data ? image.height : image.naturalHeight ?? image.videoHeight ?? image.height;
+      if (width > this._maxSize || height > this._maxSize) {
+        throw new Error(
+          `Prism.js: Texture "${texture.name || texture.id}" is ${width}x${height}, larger than this device's maximum texture size (${this._maxSize}). Resize the image.`
+        );
+      }
+      this._bindForUpload(record);
+      gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, texture.flipY);
+      gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, false);
+      gl.pixelStorei(gl.UNPACK_COLORSPACE_CONVERSION_WEBGL, gl.NONE);
+      if (image.data) {
+        gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, width, height, 0, gl.RGBA, gl.UNSIGNED_BYTE, image.data);
+      } else {
+        gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, image);
+      }
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, texture.wrapS);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, texture.wrapT);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, texture.magFilter);
+      const minFilter = !texture.generateMipmaps && isMipmapFilter(texture.minFilter) ? gl.LINEAR : texture.minFilter;
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, minFilter);
+      if (texture.generateMipmaps) gl.generateMipmap(gl.TEXTURE_2D);
+      record.version = texture.version;
+      record.ready = true;
+    }
+    /** Frees the GPU copy of one texture. */
+    release(texture) {
+      const record = this._records.get(texture);
+      if (record === void 0) return;
+      if (this._bound === record.glTexture) this._bound = null;
+      this.gl.deleteTexture(record.glTexture);
+      texture.removeDisposeListener(this._onTextureDispose);
+      this._records.delete(texture);
+      this.info.memory.textures = this._records.size;
+    }
+    /** Forgets all records without deleting GL objects (they died with a lost context). */
+    clear() {
+      this._records.clear();
+      this._bound = null;
+      this.info.memory.textures = 0;
+    }
+    dispose() {
+      for (const texture of [...this._records.keys()]) this.release(texture);
+    }
+  };
+
   // src/renderer/Renderer.js
   function createCanvas() {
     if (typeof document === "undefined") {
@@ -2494,8 +3370,8 @@ Built-in material types: ${Object.keys(SHADER_LIBRARY).join(", ")}.`
         maxVertexAttributes: gl.getParameter(gl.MAX_VERTEX_ATTRIBS)
       });
       this.info = {
-        render: { frame: 0, calls: 0, triangles: 0, lines: 0 },
-        memory: { geometries: 0, programs: 0 }
+        render: { frame: 0, calls: 0, triangles: 0, lines: 0, lights: 0 },
+        memory: { geometries: 0, programs: 0, textures: 0 }
       };
       this.autoClear = true;
       this.width = canvas.width / pixelRatio;
@@ -2509,6 +3385,8 @@ Built-in material types: ${Object.keys(SHADER_LIBRARY).join(", ")}.`
       this._programs = new WebGLPrograms(gl, this.info);
       this._geometries = new WebGLGeometries(gl, this.state, this.info);
       this._list = new RenderList();
+      this._lights = new WebGLLights();
+      this._textures = new WebGLTextures(gl, this.info);
       this._colorScratch = new Color();
       this._normalMatrix = new Matrix3();
       this._projectionArray = new Float32Array(16);
@@ -2525,6 +3403,7 @@ Built-in material types: ${Object.keys(SHADER_LIBRARY).join(", ")}.`
         this.contextLost = false;
         this._programs.clear();
         this._geometries.clear();
+        this._textures.clear();
         this.state.reset();
         this._applyState();
         console.info("Prism.js: WebGL context restored.");
@@ -2634,9 +3513,12 @@ Built-in material types: ${Object.keys(SHADER_LIBRARY).join(", ")}.`
       scene.updateMatrixWorld();
       if (camera.parent === null) camera.updateMatrixWorld();
       this.state.resetBindings();
+      this._textures.resetBindings();
       this._list.reset();
+      this._lights.reset();
       this._collect(scene, camera);
       this._list.sort();
+      stats.lights = this._lights.count;
       if (this.autoClear) {
         const bg = scene.background;
         if (bg) this._applyClearColor(bg.r, bg.g, bg.b, 1);
@@ -2657,12 +3539,14 @@ Built-in material types: ${Object.keys(SHADER_LIBRARY).join(", ")}.`
       if (this._disposed) return;
       this._disposed = true;
       this._geometries.dispose();
+      this._textures.dispose();
       this._programs.dispose();
       this.domElement.removeEventListener("webglcontextlost", this._onContextLost, false);
       this.domElement.removeEventListener("webglcontextrestored", this._onContextRestored, false);
     }
     _collect(object, camera) {
       if (!object.visible) return;
+      if (object.isLight) this._lights.add(object, camera.matrixWorldInverse);
       if (object.isMesh) {
         const material = object.material;
         if (!material || !material.isMaterial) {
@@ -2693,6 +3577,17 @@ Built-in material types: ${Object.keys(SHADER_LIBRARY).join(", ")}.`
           gl.uniformMatrix4fv(locations.uProjectionMatrix, false, this._projectionArray);
           entry.frame = frame;
         }
+        if (entry.definition.usesLights && entry.lightsFrame !== frame) {
+          this._lights.upload(gl, locations);
+          entry.lightsFrame = frame;
+        }
+        if (entry.definition.requiresNormals && geometry.attributes.normal === void 0) {
+          throw new Error(
+            `Prism.js: ${material.type} needs a "normal" attribute but the geometry has none.
+
+Call geometry.computeVertexNormals() or use a built-in geometry.`
+          );
+        }
         this._modelViewArray.set(modelView.elements);
         gl.uniformMatrix4fv(locations.uModelViewMatrix, false, this._modelViewArray);
         if (entry.definition.usesNormalMatrix) {
@@ -2701,6 +3596,15 @@ Built-in material types: ${Object.keys(SHADER_LIBRARY).join(", ")}.`
           gl.uniformMatrix3fv(locations.uNormalMatrix, false, this._normalArray);
         }
         entry.definition.uploadMaterial(gl, locations, material);
+        if (material.map && entry.definition.supportsMap) {
+          if (geometry.attributes.uv === void 0) {
+            throw new Error(
+              `Prism.js: ${material.type} has a texture map but the geometry has no "uv" attribute.`
+            );
+          }
+          this._textures.bind(material.map);
+          gl.uniform1i(locations.uMap, 0);
+        }
         const record = this._geometries.get(geometry);
         if (material.wireframe) {
           const wire = this._geometries.getWireframe(record, geometry);

@@ -1,6 +1,7 @@
 export const normalShader = {
 	uniforms: ['uModelViewMatrix', 'uProjectionMatrix', 'uNormalMatrix', 'uOpacity'],
 	usesNormalMatrix: true,
+	requiresNormals: true,
 
 	vertexShader: `#version 300 es
 layout(location = 0) in vec3 aPosition;

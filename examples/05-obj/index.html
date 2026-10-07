@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+	<meta charset="utf-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+	<link rel="icon" href="data:,">
+	<title>Prism.js – 05 OBJ + MTL</title>
+	<style>
+		:root { --bg: #0b0d17; --fg: #e8ecff; --dim: #8d96c4; color-scheme: dark; box-sizing: border-box;
+			padding-top: env(safe-area-inset-top, 0px); padding-bottom: env(safe-area-inset-bottom, 0px); }
+		html { height: 100%; scroll-padding-top: env(safe-area-inset-top, 0px); }
+		body { height: 100%; margin: 0; position: relative; overflow: hidden; background: var(--bg); color: var(--fg);
+			font: 14px/1.4 system-ui, sans-serif; user-select: none; -webkit-user-select: none; }
+		canvas { display: block; width: 100%; height: 100%; touch-action: none; }
+		#info { position: absolute; left: 12px; bottom: 12px; color: var(--dim); font-variant-numeric: tabular-nums; pointer-events: none; }
+		#error { position: absolute; inset: 12px; margin: 0; padding: 12px; overflow: auto; background: #2a1114; color: #ffd7d7;
+			font: 12px/1.4 ui-monospace, monospace; white-space: pre-wrap; border-radius: 6px; }
+		#error[hidden] { display: none; }
+		#bar { position: absolute; top: 10px; left: 10px; right: 10px; display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+		#bar button, #bar label { font: inherit; color: var(--fg); background: #1b2142; border: 1px solid #3a4170; border-radius: 8px;
+			padding: 8px 12px; cursor: pointer; user-select: none; }
+		#bar button[aria-pressed="true"] { background: #3a4aa8; border-color: #6f7fe0; }
+		#file { display: none; }
+		#status { color: var(--dim); flex-basis: 100%; }
+		#info { bottom: 12px; }
+	</style>
+</head>
+<body>
+	<canvas id="canvas"></canvas>
+	<div id="bar">
+		<button id="btn-crate" aria-pressed="true">Crate</button>
+		<button id="btn-house" aria-pressed="false">Rumah</button>
+		<label for="file">Buka file…</label>
+		<input id="file" type="file" multiple accept=".obj,.mtl,.png,.jpg,.jpeg,.webp,.gif">
+		<span id="status"></span>
+	</div>
+	<div id="info"></div>
+	<pre id="error" hidden></pre>
+	<script type="module" src="./main.js"></script>
+</body>
+</html>

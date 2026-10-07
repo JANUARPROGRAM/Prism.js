@@ -9,6 +9,8 @@ export class BasicMaterial extends Material {
 		this.color = new Color(1, 1, 1);
 		/** Draw triangle edges as lines instead of filled triangles. */
 		this.wireframe = false;
+		/** Texture multiplied with `color`. Geometry needs a "uv" attribute. Use `transparent: true` if it has alpha. */
+		this.map = null;
 		this.setValues(parameters);
 	}
 

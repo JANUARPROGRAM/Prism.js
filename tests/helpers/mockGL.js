@@ -42,6 +42,8 @@ export function createMockGL({ vertexLog = null, fragmentLog = null, linkLog = n
 
 		shaderCount: 0,
 		liveBuffers: new Set(),
+		liveTextures: new Set(),
+		sources: [],
 		liveVAOs: new Set(),
 		lastMatrix: null,
 
@@ -51,6 +53,8 @@ export function createMockGL({ vertexLog = null, fragmentLog = null, linkLog = n
 			gl.liveShaders.add(shader);
 			return shader;
 		},
+		createTexture() { const t = {}; gl.liveTextures.add(t); return t; },
+		deleteTexture(t) { gl.liveTextures.delete(t); },
 		createBuffer() { const b = {}; gl.liveBuffers.add(b); return b; },
 		deleteBuffer(b) { gl.liveBuffers.delete(b); },
 		createVertexArray() { const v = {}; gl.liveVAOs.add(v); return v; },
@@ -63,6 +67,7 @@ export function createMockGL({ vertexLog = null, fragmentLog = null, linkLog = n
 		drawArrays(mode, first, count) { gl.calls.push(['drawArrays', mode, first, count, gl.lastMatrix]); },
 		shaderSource(shader, source) {
 			shader.source = source;
+			gl.sources.push(source);
 		},
 		compileShader() {},
 		getShaderParameter(shader) {
