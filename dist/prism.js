@@ -24,6 +24,7 @@ var Prism = (() => {
     BackSide: () => BackSide,
     BasicMaterial: () => BasicMaterial,
     BoxGeometry: () => BoxGeometry,
+    BoxShape: () => BoxShape,
     BufferAttribute: () => BufferAttribute,
     BufferGeometry: () => BufferGeometry,
     Camera: () => Camera,
@@ -55,14 +56,18 @@ var Prism = (() => {
     Object3D: () => Object3D,
     OrthographicCamera: () => OrthographicCamera,
     PerspectiveCamera: () => PerspectiveCamera,
+    PhysicsWorld: () => PhysicsWorld,
     PlaneGeometry: () => PlaneGeometry,
+    PlaneShape: () => PlaneShape,
     PointLight: () => PointLight,
     Quaternion: () => Quaternion,
     RAD2DEG: () => RAD2DEG,
     Renderer: () => Renderer,
     RepeatWrapping: () => RepeatWrapping,
+    RigidBody: () => RigidBody,
     Scene: () => Scene,
     SphereGeometry: () => SphereGeometry,
+    SphereShape: () => SphereShape,
     Texture: () => Texture,
     TextureLoader: () => TextureLoader,
     Vector2: () => Vector2,
@@ -329,6 +334,21 @@ var Prism = (() => {
       this.y = e[1] * x + e[5] * y + e[9] * z;
       this.z = e[2] * x + e[6] * y + e[10] * z;
       return this.normalize();
+    }
+    /**
+     * World -> normalized device coordinates (x, y, z in -1..1) for `camera`.
+     * The camera's matrices must be current (renderer.render() or camera.updateMatrixWorld()).
+     */
+    project(camera) {
+      return this.applyMatrix4(camera.matrixWorldInverse).applyMatrix4(camera.projectionMatrix);
+    }
+    /**
+     * Normalized device coordinates -> world. With z = -1 the point is on the near plane and with
+     * z = 1 on the far plane, so unproject((x, y, 0.5)) - cameraPosition is the direction of the ray
+     * through that screen position.
+     */
+    unproject(camera) {
+      return this.applyMatrix4(camera.projectionMatrixInverse).applyMatrix4(camera.matrixWorld);
     }
     setFromMatrixPosition(m) {
       const e = m.elements;
@@ -1673,6 +1693,7 @@ var Prism = (() => {
       super();
       this.matrixWorldInverse = new Matrix4();
       this.projectionMatrix = new Matrix4();
+      this.projectionMatrixInverse = new Matrix4();
       this._inverseSource = new Float64Array(16).fill(NaN);
     }
     updateMatrixWorld(force = false) {
@@ -1721,6 +1742,7 @@ var Prism = (() => {
       if (!(aspect > 0)) throw new RangeError(`Prism.js: PerspectiveCamera aspect must be positive, received ${aspect}.`);
       if (!(near > 0 && far > near)) throw new RangeError(`Prism.js: PerspectiveCamera requires 0 < near < far, received near=${near}, far=${far}.`);
       this.projectionMatrix.makePerspective(fov * DEG2RAD, aspect, near, far);
+      this.projectionMatrixInverse.copy(this.projectionMatrix).invert();
     }
   };
   PerspectiveCamera.prototype.isPerspectiveCamera = true;
@@ -1744,6 +1766,7 @@ var Prism = (() => {
         throw new RangeError("Prism.js: OrthographicCamera needs a non-empty box (left != right, top != bottom, near != far).");
       }
       this.projectionMatrix.makeOrthographic(left, right, top, bottom, near, far);
+      this.projectionMatrixInverse.copy(this.projectionMatrix).invert();
     }
   };
   OrthographicCamera.prototype.isOrthographicCamera = true;
@@ -2446,6 +2469,1183 @@ var Prism = (() => {
       return group;
     }
   };
+
+  // src/physics/shapes.js
+  var KIND_PLANE = 0;
+  var KIND_BOX = 1;
+  var KIND_SPHERE = 2;
+  function assertPositive2(name, value) {
+    if (!(value > 0) || !Number.isFinite(value)) {
+      throw new RangeError(`Prism.js: ${name} must be a positive finite number, received ${String(value)}.`);
+    }
+  }
+  var SphereShape = class {
+    constructor(radius = 0.5) {
+      assertPositive2("SphereShape radius", radius);
+      this.radius = radius;
+      this.kind = KIND_SPHERE;
+    }
+    /** Principal moments of a solid sphere: 2/5 m r². */
+    computeInertia(mass, out) {
+      return out.setScalar(0.4 * mass * this.radius * this.radius);
+    }
+  };
+  var BoxShape = class {
+    constructor(width = 1, height = 1, depth = 1) {
+      assertPositive2("BoxShape width", width);
+      assertPositive2("BoxShape height", height);
+      assertPositive2("BoxShape depth", depth);
+      this.size = new Vector3(width, height, depth);
+      this.halfExtents = new Vector3(width / 2, height / 2, depth / 2);
+      this.kind = KIND_BOX;
+    }
+    /** Principal moments of a solid cuboid: m/12 (b² + c²) about each axis. */
+    computeInertia(mass, out) {
+      const { x: w, y: h, z: d } = this.size;
+      const k = mass / 12;
+      return out.set(k * (h * h + d * d), k * (w * w + d * d), k * (w * w + h * h));
+    }
+  };
+  var PlaneShape = class {
+    constructor(normal = new Vector3(0, 1, 0), constant = 0) {
+      const n = new Vector3().copy(normal);
+      if (n.lengthSq() === 0) throw new RangeError("Prism.js: PlaneShape normal must not be the zero vector.");
+      this.normal = n.normalize();
+      this.constant = constant;
+      this.kind = KIND_PLANE;
+    }
+    computeInertia(mass, out) {
+      return out.set(0, 0, 0);
+    }
+  };
+
+  // src/physics/RigidBody.js
+  var _nextId5 = 1;
+  var _inertia = new Vector3();
+  function rotationFromQuaternion(q, out) {
+    const x = q.x, y = q.y, z = q.z, w = q.w;
+    const x2 = x + x, y2 = y + y, z2 = z + z;
+    const xx = x * x2, xy = x * y2, xz = x * z2, yy = y * y2, yz = y * z2, zz = z * z2;
+    const wx = w * x2, wy = w * y2, wz = w * z2;
+    out[0] = 1 - (yy + zz);
+    out[1] = xy - wz;
+    out[2] = xz + wy;
+    out[3] = xy + wz;
+    out[4] = 1 - (xx + zz);
+    out[5] = yz - wx;
+    out[6] = xz - wy;
+    out[7] = yz + wx;
+    out[8] = 1 - (xx + yy);
+    return out;
+  }
+  var RigidBody = class {
+    /**
+     * @param {object} options
+     * @param {SphereShape|BoxShape|PlaneShape} options.shape
+     * @param {number} [options.mass=1]
+     * @param {Vector3} [options.position]
+     * @param {Quaternion} [options.quaternion]
+     * @param {Vector3} [options.velocity]
+     * @param {Vector3} [options.angularVelocity] radians per second, world axes
+     * @param {number} [options.restitution=0.3] 0 = no bounce, 1 = perfectly elastic
+     * @param {number} [options.friction=0.5] Coulomb coefficient
+     * @param {number} [options.linearDamping=0.01] fraction of speed lost per second
+     * @param {number} [options.angularDamping=0.01]
+     * @param {number} [options.gravityScale=1]
+     * @param {boolean} [options.allowSleep=true]
+     * @param {number} [options.collisionGroup=1] bit(s) this body belongs to
+     * @param {number} [options.collisionMask=0xffff] groups this body collides with
+     * @param {import('../core/Object3D.js').Object3D} [options.object] mesh kept in sync by the world
+     */
+    constructor(options = {}) {
+      const {
+        shape,
+        mass = 1,
+        position,
+        quaternion,
+        velocity,
+        angularVelocity,
+        restitution = 0.3,
+        friction = 0.5,
+        linearDamping = 0.01,
+        angularDamping = 0.01,
+        gravityScale = 1,
+        allowSleep = true,
+        collisionGroup = 1,
+        collisionMask = 65535,
+        object = null,
+        userData = {}
+      } = options;
+      if (!shape || typeof shape.computeInertia !== "function") {
+        throw new TypeError("Prism.js: RigidBody requires a `shape` (SphereShape, BoxShape or PlaneShape).");
+      }
+      for (const [name, value] of Object.entries({ restitution, friction, linearDamping, angularDamping })) {
+        if (!(value >= 0) || !Number.isFinite(value)) {
+          throw new RangeError(`Prism.js: RigidBody ${name} must be a finite number >= 0, received ${String(value)}.`);
+        }
+      }
+      if (linearDamping > 1 || angularDamping > 1) throw new RangeError("Prism.js: damping is a fraction per second and must be <= 1.");
+      this.id = _nextId5++;
+      this.shape = shape;
+      this.position = position ? new Vector3().copy(position) : new Vector3();
+      this.quaternion = quaternion ? new Quaternion().copy(quaternion).normalize() : new Quaternion();
+      this.velocity = velocity ? new Vector3().copy(velocity) : new Vector3();
+      this.angularVelocity = angularVelocity ? new Vector3().copy(angularVelocity) : new Vector3();
+      this.force = new Vector3();
+      this.torque = new Vector3();
+      this.restitution = restitution;
+      this.friction = friction;
+      this.linearDamping = linearDamping;
+      this.angularDamping = angularDamping;
+      this.gravityScale = gravityScale;
+      this.allowSleep = allowSleep;
+      this.collisionGroup = collisionGroup;
+      this.collisionMask = collisionMask;
+      this.object = object;
+      this.userData = userData;
+      this.sleeping = false;
+      this.sleepTimer = 0;
+      this.mass = 0;
+      this.invMass = 0;
+      this.invInertiaLocal = new Vector3();
+      this.invInertiaWorld = new Float64Array(9);
+      this.rotation = new Float64Array(9);
+      this._pv = new Vector3();
+      this._pw = new Vector3();
+      this._im = 0;
+      this._ii = this.invInertiaWorld;
+      this.setMass(mass);
+      this.updateRotation();
+    }
+    get isDynamic() {
+      return this.invMass > 0;
+    }
+    setMass(mass) {
+      if (!(mass >= 0) || !Number.isFinite(mass)) {
+        throw new RangeError(`Prism.js: RigidBody mass must be a finite number >= 0, received ${String(mass)}.`);
+      }
+      if (this.shape.kind === KIND_PLANE && mass !== 0) {
+        throw new RangeError("Prism.js: A body with a PlaneShape must be static (mass 0).");
+      }
+      this.mass = mass;
+      this.invMass = mass > 0 ? 1 / mass : 0;
+      if (mass > 0) {
+        this.shape.computeInertia(mass, _inertia);
+        this.invInertiaLocal.set(1 / _inertia.x, 1 / _inertia.y, 1 / _inertia.z);
+      } else {
+        this.invInertiaLocal.set(0, 0, 0);
+      }
+      this.updateRotation();
+      return this;
+    }
+    /** Recomputes the rotation matrix and the world-space inverse inertia tensor from `quaternion`. */
+    updateRotation() {
+      const R = rotationFromQuaternion(this.quaternion, this.rotation);
+      const d = this.invInertiaLocal, I = this.invInertiaWorld;
+      for (let i = 0; i < 3; i++) {
+        for (let j = 0; j < 3; j++) {
+          I[i * 3 + j] = R[i * 3] * d.x * R[j * 3] + R[i * 3 + 1] * d.y * R[j * 3 + 1] + R[i * 3 + 2] * d.z * R[j * 3 + 2];
+        }
+      }
+    }
+    wakeUp() {
+      this.sleeping = false;
+      this.sleepTimer = 0;
+      return this;
+    }
+    /** Adds a force (newtons) for the next step; with a world-space `point` it also adds the torque. */
+    applyForce(force, point) {
+      if (this.invMass === 0) return this;
+      this.wakeUp();
+      this.force.add(force);
+      if (point) {
+        this.torque.x += (point.y - this.position.y) * force.z - (point.z - this.position.z) * force.y;
+        this.torque.y += (point.z - this.position.z) * force.x - (point.x - this.position.x) * force.z;
+        this.torque.z += (point.x - this.position.x) * force.y - (point.y - this.position.y) * force.x;
+      }
+      return this;
+    }
+    /** Adds a torque (newton-meters, world axes) for the next step. */
+    applyTorque(torque) {
+      if (this.invMass === 0) return this;
+      this.wakeUp();
+      this.torque.add(torque);
+      return this;
+    }
+    /** Instantly changes the velocity: dv = J / m, and with a world-space `point` also dω = I⁻¹ (r × J). */
+    applyImpulse(impulse, point) {
+      if (this.invMass === 0) return this;
+      this.wakeUp();
+      this.velocity.addScaledVector(impulse, this.invMass);
+      if (point) {
+        const rx = point.x - this.position.x, ry = point.y - this.position.y, rz = point.z - this.position.z;
+        const tx = ry * impulse.z - rz * impulse.y, ty = rz * impulse.x - rx * impulse.z, tz = rx * impulse.y - ry * impulse.x;
+        const I = this.invInertiaWorld;
+        this.angularVelocity.x += I[0] * tx + I[1] * ty + I[2] * tz;
+        this.angularVelocity.y += I[3] * tx + I[4] * ty + I[5] * tz;
+        this.angularVelocity.z += I[6] * tx + I[7] * ty + I[8] * tz;
+      }
+      return this;
+    }
+    /** Velocity of the material point of this body that is currently at world position `point`. */
+    getVelocityAtPoint(point, target = new Vector3()) {
+      const rx = point.x - this.position.x, ry = point.y - this.position.y, rz = point.z - this.position.z;
+      const w = this.angularVelocity;
+      return target.set(
+        this.velocity.x + w.y * rz - w.z * ry,
+        this.velocity.y + w.z * rx - w.x * rz,
+        this.velocity.z + w.x * ry - w.y * rx
+      );
+    }
+    /** Kinetic energy: translational + rotational (computed with the world inertia tensor). */
+    get kineticEnergy() {
+      if (this.invMass === 0) return 0;
+      const v = this.velocity, w = this.angularVelocity;
+      const R = this.rotation, d = this.invInertiaLocal;
+      const lx = R[0] * w.x + R[3] * w.y + R[6] * w.z;
+      const ly = R[1] * w.x + R[4] * w.y + R[7] * w.z;
+      const lz = R[2] * w.x + R[5] * w.y + R[8] * w.z;
+      return 0.5 * this.mass * v.lengthSq() + 0.5 * (lx * lx / d.x + ly * ly / d.y + lz * lz / d.z);
+    }
+  };
+  RigidBody.prototype.isRigidBody = true;
+
+  // src/physics/collision.js
+  var Contact = class {
+    constructor() {
+      this.a = null;
+      this.b = null;
+      this.px = 0;
+      this.py = 0;
+      this.pz = 0;
+      this.nx = 0;
+      this.ny = 0;
+      this.nz = 0;
+      this.depth = 0;
+      this.rax = 0;
+      this.ray = 0;
+      this.raz = 0;
+      this.rbx = 0;
+      this.rby = 0;
+      this.rbz = 0;
+      this.t1x = 0;
+      this.t1y = 0;
+      this.t1z = 0;
+      this.t2x = 0;
+      this.t2y = 0;
+      this.t2z = 0;
+      this.invKN = 0;
+      this.invKT1 = 0;
+      this.invKT2 = 0;
+      this.target = 0;
+      this.mu = 0;
+      this.bias = 0;
+      this.accP = 0;
+      this.accN = 0;
+      this.accT1 = 0;
+      this.accT2 = 0;
+      this.invKS = 0;
+      this.accS = 0;
+      this.normalImpulse = 0;
+    }
+  };
+  var ContactList = class {
+    constructor() {
+      this.items = [];
+      this.count = 0;
+    }
+    reset() {
+      this.count = 0;
+    }
+    add(a, b, px, py, pz, nx, ny, nz, depth) {
+      let c = this.items[this.count];
+      if (c === void 0) c = this.items[this.count] = new Contact();
+      this.count++;
+      c.a = a;
+      c.b = b;
+      c.px = px;
+      c.py = py;
+      c.pz = pz;
+      c.nx = nx;
+      c.ny = ny;
+      c.nz = nz;
+      c.depth = depth;
+      return c;
+    }
+  };
+  function computeAABB(body, out) {
+    const p = body.position;
+    let ex, ey, ez;
+    if (body.shape.kind === KIND_SPHERE) {
+      ex = ey = ez = body.shape.radius;
+    } else {
+      const R = body.rotation, h = body.shape.halfExtents;
+      ex = Math.abs(R[0]) * h.x + Math.abs(R[1]) * h.y + Math.abs(R[2]) * h.z;
+      ey = Math.abs(R[3]) * h.x + Math.abs(R[4]) * h.y + Math.abs(R[5]) * h.z;
+      ez = Math.abs(R[6]) * h.x + Math.abs(R[7]) * h.y + Math.abs(R[8]) * h.z;
+    }
+    out[0] = p.x - ex;
+    out[1] = p.y - ey;
+    out[2] = p.z - ez;
+    out[3] = p.x + ex;
+    out[4] = p.y + ey;
+    out[5] = p.z + ez;
+  }
+  var dot = (a, b) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
+  function worldPlane(body, out) {
+    const R = body.rotation, n = body.shape.normal, p = body.position;
+    out[0] = R[0] * n.x + R[1] * n.y + R[2] * n.z;
+    out[1] = R[3] * n.x + R[4] * n.y + R[5] * n.z;
+    out[2] = R[6] * n.x + R[7] * n.y + R[8] * n.z;
+    out[3] = body.shape.constant + out[0] * p.x + out[1] * p.y + out[2] * p.z;
+    return out;
+  }
+  var _plane = new Float64Array(4);
+  function planeSphere(plane, sphere, list) {
+    const pl = worldPlane(plane, _plane), r = sphere.shape.radius, c = sphere.position;
+    const dist = pl[0] * c.x + pl[1] * c.y + pl[2] * c.z - pl[3];
+    const depth = r - dist;
+    if (depth <= 0) return;
+    const k = r - depth * 0.5;
+    list.add(plane, sphere, c.x - pl[0] * k, c.y - pl[1] * k, c.z - pl[2] * k, pl[0], pl[1], pl[2], depth);
+  }
+  function planeBox(plane, box, list) {
+    const pl = worldPlane(plane, _plane), R = box.rotation, h = box.shape.halfExtents, p = box.position;
+    for (let sx = -1; sx <= 1; sx += 2) {
+      for (let sy = -1; sy <= 1; sy += 2) {
+        for (let sz = -1; sz <= 1; sz += 2) {
+          const lx = sx * h.x, ly = sy * h.y, lz = sz * h.z;
+          const x = p.x + R[0] * lx + R[1] * ly + R[2] * lz;
+          const y = p.y + R[3] * lx + R[4] * ly + R[5] * lz;
+          const z = p.z + R[6] * lx + R[7] * ly + R[8] * lz;
+          const dist = pl[0] * x + pl[1] * y + pl[2] * z - pl[3];
+          if (dist < 0) {
+            const half = -dist * 0.5;
+            list.add(plane, box, x + pl[0] * half, y + pl[1] * half, z + pl[2] * half, pl[0], pl[1], pl[2], -dist);
+          }
+        }
+      }
+    }
+  }
+  function sphereSphere(a, b, list) {
+    const dx = b.position.x - a.position.x, dy = b.position.y - a.position.y, dz = b.position.z - a.position.z;
+    const ra = a.shape.radius, rb = b.shape.radius, sum = ra + rb;
+    const d2 = dx * dx + dy * dy + dz * dz;
+    if (d2 >= sum * sum) return;
+    const dist = Math.sqrt(d2);
+    let nx = 0, ny = 1, nz = 0;
+    if (dist > 1e-9) {
+      nx = dx / dist;
+      ny = dy / dist;
+      nz = dz / dist;
+    }
+    const depth = sum - dist;
+    const k = ra - depth * 0.5;
+    list.add(a, b, a.position.x + nx * k, a.position.y + ny * k, a.position.z + nz * k, nx, ny, nz, depth);
+  }
+  function boxSphere(box, sphere, list) {
+    const R = box.rotation, h = box.shape.halfExtents, r = sphere.shape.radius;
+    const rx = sphere.position.x - box.position.x, ry = sphere.position.y - box.position.y, rz = sphere.position.z - box.position.z;
+    const lx = R[0] * rx + R[3] * ry + R[6] * rz;
+    const ly = R[1] * rx + R[4] * ry + R[7] * rz;
+    const lz = R[2] * rx + R[5] * ry + R[8] * rz;
+    const cx = Math.max(-h.x, Math.min(h.x, lx));
+    const cy = Math.max(-h.y, Math.min(h.y, ly));
+    const cz = Math.max(-h.z, Math.min(h.z, lz));
+    const dx = lx - cx, dy = ly - cy, dz = lz - cz;
+    const d2 = dx * dx + dy * dy + dz * dz;
+    let nx, ny, nz, depth, qx, qy, qz;
+    if (d2 > 1e-18) {
+      if (d2 >= r * r) return;
+      const dist = Math.sqrt(d2);
+      nx = dx / dist;
+      ny = dy / dist;
+      nz = dz / dist;
+      depth = r - dist;
+      qx = cx + nx * depth * 0.5;
+      qy = cy + ny * depth * 0.5;
+      qz = cz + nz * depth * 0.5;
+    } else {
+      const gx = h.x - Math.abs(lx), gy = h.y - Math.abs(ly), gz = h.z - Math.abs(lz);
+      nx = ny = nz = 0;
+      if (gx <= gy && gx <= gz) {
+        nx = lx < 0 ? -1 : 1;
+        depth = r + gx;
+        qx = nx * h.x;
+        qy = ly;
+        qz = lz;
+      } else if (gy <= gz) {
+        ny = ly < 0 ? -1 : 1;
+        depth = r + gy;
+        qx = lx;
+        qy = ny * h.y;
+        qz = lz;
+      } else {
+        nz = lz < 0 ? -1 : 1;
+        depth = r + gz;
+        qx = lx;
+        qy = ly;
+        qz = nz * h.z;
+      }
+    }
+    list.add(
+      box,
+      sphere,
+      box.position.x + R[0] * qx + R[1] * qy + R[2] * qz,
+      box.position.y + R[3] * qx + R[4] * qy + R[5] * qz,
+      box.position.z + R[6] * qx + R[7] * qy + R[8] * qz,
+      R[0] * nx + R[1] * ny + R[2] * nz,
+      R[3] * nx + R[4] * ny + R[5] * nz,
+      R[6] * nx + R[7] * ny + R[8] * nz,
+      depth
+    );
+  }
+  var AX = [new Float64Array(3), new Float64Array(3), new Float64Array(3)];
+  var BX = [new Float64Array(3), new Float64Array(3), new Float64Array(3)];
+  var _L = new Float64Array(3);
+  function loadAxes(R, out) {
+    for (let i = 0; i < 3; i++) {
+      out[i][0] = R[i];
+      out[i][1] = R[3 + i];
+      out[i][2] = R[6 + i];
+    }
+  }
+  function clipPolygon(polygon, center, n, h) {
+    const out = [];
+    for (let i = 0; i < polygon.length; i++) {
+      const p = polygon[i], q = polygon[(i + 1) % polygon.length];
+      const dp = (p[0] - center[0]) * n[0] + (p[1] - center[1]) * n[1] + (p[2] - center[2]) * n[2] - h;
+      const dq = (q[0] - center[0]) * n[0] + (q[1] - center[1]) * n[1] + (q[2] - center[2]) * n[2] - h;
+      if (dp <= 0) out.push(p);
+      if (dp < 0 && dq > 0 || dp > 0 && dq < 0) {
+        const t = dp / (dp - dq);
+        out.push([p[0] + (q[0] - p[0]) * t, p[1] + (q[1] - p[1]) * t, p[2] + (q[2] - p[2]) * t]);
+      }
+    }
+    return out;
+  }
+  function boxBox(A, B, list) {
+    const ha = [A.shape.halfExtents.x, A.shape.halfExtents.y, A.shape.halfExtents.z];
+    const hb = [B.shape.halfExtents.x, B.shape.halfExtents.y, B.shape.halfExtents.z];
+    loadAxes(A.rotation, AX);
+    loadAxes(B.rotation, BX);
+    const delta = [B.position.x - A.position.x, B.position.y - A.position.y, B.position.z - A.position.z];
+    let sepA = -Infinity, iA = 0, signA = 1;
+    let sepB = -Infinity, jB = 0, signB = 1;
+    let sepE = -Infinity, eI = 0, eJ = 0;
+    const edgeAxis = new Float64Array(3);
+    for (let i = 0; i < 3; i++) {
+      const d = dot(delta, AX[i]);
+      let rb = 0;
+      for (let j = 0; j < 3; j++) rb += hb[j] * Math.abs(dot(AX[i], BX[j]));
+      const sep = Math.abs(d) - (ha[i] + rb);
+      if (sep > 0) return;
+      if (sep > sepA) {
+        sepA = sep;
+        iA = i;
+        signA = d < 0 ? -1 : 1;
+      }
+    }
+    for (let j = 0; j < 3; j++) {
+      const d = dot(delta, BX[j]);
+      let ra = 0;
+      for (let i = 0; i < 3; i++) ra += ha[i] * Math.abs(dot(BX[j], AX[i]));
+      const sep = Math.abs(d) - (hb[j] + ra);
+      if (sep > 0) return;
+      if (sep > sepB) {
+        sepB = sep;
+        jB = j;
+        signB = d < 0 ? -1 : 1;
+      }
+    }
+    for (let i = 0; i < 3; i++) {
+      for (let j = 0; j < 3; j++) {
+        const a = AX[i], b = BX[j];
+        _L[0] = a[1] * b[2] - a[2] * b[1];
+        _L[1] = a[2] * b[0] - a[0] * b[2];
+        _L[2] = a[0] * b[1] - a[1] * b[0];
+        const len = Math.hypot(_L[0], _L[1], _L[2]);
+        if (len < 1e-6) continue;
+        _L[0] /= len;
+        _L[1] /= len;
+        _L[2] /= len;
+        let ra = 0, rb = 0;
+        for (let k2 = 0; k2 < 3; k2++) {
+          ra += ha[k2] * Math.abs(dot(AX[k2], _L));
+          rb += hb[k2] * Math.abs(dot(BX[k2], _L));
+        }
+        const sep = Math.abs(dot(delta, _L)) - (ra + rb);
+        if (sep > 0) return;
+        if (sep > sepE) {
+          sepE = sep;
+          eI = i;
+          eJ = j;
+          edgeAxis.set(_L);
+        }
+      }
+    }
+    const faceBest = Math.max(sepA, sepB);
+    if (sepE > faceBest * 0.95 + 0.01) {
+      edgeContact(A, B, ha, hb, delta, edgeAxis, eI, eJ, -sepE, list);
+      return;
+    }
+    let ref, inc, refAxes, incAxes, refHalf, incHalf, axisIndex, nRef;
+    if (sepB > sepA * 0.95 + 0.01) {
+      ref = B;
+      inc = A;
+      refAxes = BX;
+      incAxes = AX;
+      refHalf = hb;
+      incHalf = ha;
+      axisIndex = jB;
+      const s = -signB;
+      nRef = [BX[jB][0] * s, BX[jB][1] * s, BX[jB][2] * s];
+    } else {
+      ref = A;
+      inc = B;
+      refAxes = AX;
+      incAxes = BX;
+      refHalf = ha;
+      incHalf = hb;
+      axisIndex = iA;
+      nRef = [AX[iA][0] * signA, AX[iA][1] * signA, AX[iA][2] * signA];
+    }
+    const normal = ref === A ? nRef : [-nRef[0], -nRef[1], -nRef[2]];
+    const u = (axisIndex + 1) % 3, v = (axisIndex + 2) % 3;
+    const rp = ref.position;
+    const refCenter = [rp.x + nRef[0] * refHalf[axisIndex], rp.y + nRef[1] * refHalf[axisIndex], rp.z + nRef[2] * refHalf[axisIndex]];
+    let k = 0, best = 0;
+    for (let m = 0; m < 3; m++) {
+      const d = dot(incAxes[m], nRef);
+      if (Math.abs(d) > Math.abs(best)) {
+        best = d;
+        k = m;
+      }
+    }
+    const sgn = best > 0 ? -1 : 1;
+    const ip = inc.position;
+    const ic = [ip.x + incAxes[k][0] * sgn * incHalf[k], ip.y + incAxes[k][1] * sgn * incHalf[k], ip.z + incAxes[k][2] * sgn * incHalf[k]];
+    const p = (k + 1) % 3, q = (k + 2) % 3;
+    let polygon = [];
+    for (const [sp, sq] of [[1, 1], [1, -1], [-1, -1], [-1, 1]]) {
+      polygon.push([
+        ic[0] + incAxes[p][0] * sp * incHalf[p] + incAxes[q][0] * sq * incHalf[q],
+        ic[1] + incAxes[p][1] * sp * incHalf[p] + incAxes[q][1] * sq * incHalf[q],
+        ic[2] + incAxes[p][2] * sp * incHalf[p] + incAxes[q][2] * sq * incHalf[q]
+      ]);
+    }
+    const un = refAxes[u], vn = refAxes[v];
+    polygon = clipPolygon(polygon, refCenter, un, refHalf[u]);
+    polygon = clipPolygon(polygon, refCenter, [-un[0], -un[1], -un[2]], refHalf[u]);
+    polygon = clipPolygon(polygon, refCenter, vn, refHalf[v]);
+    polygon = clipPolygon(polygon, refCenter, [-vn[0], -vn[1], -vn[2]], refHalf[v]);
+    for (const pt of polygon) {
+      const sep = (pt[0] - refCenter[0]) * nRef[0] + (pt[1] - refCenter[1]) * nRef[1] + (pt[2] - refCenter[2]) * nRef[2];
+      if (sep > 0) continue;
+      const depth = -sep;
+      list.add(
+        A,
+        B,
+        pt[0] + nRef[0] * depth * 0.5,
+        pt[1] + nRef[1] * depth * 0.5,
+        pt[2] + nRef[2] * depth * 0.5,
+        normal[0],
+        normal[1],
+        normal[2],
+        depth
+      );
+    }
+  }
+  function edgeContact(A, B, ha, hb, delta, axis, i, j, depth, list) {
+    const flip = dot(axis, delta) < 0 ? -1 : 1;
+    const n = [axis[0] * flip, axis[1] * flip, axis[2] * flip];
+    const c1 = [A.position.x, A.position.y, A.position.z];
+    const c2 = [B.position.x, B.position.y, B.position.z];
+    for (let m = 0; m < 3; m++) {
+      if (m !== i) {
+        const s2 = dot(AX[m], n) > 0 ? 1 : -1;
+        for (let c3 = 0; c3 < 3; c3++) c1[c3] += AX[m][c3] * s2 * ha[m];
+      }
+      if (m !== j) {
+        const s2 = dot(BX[m], n) > 0 ? -1 : 1;
+        for (let c3 = 0; c3 < 3; c3++) c2[c3] += BX[m][c3] * s2 * hb[m];
+      }
+    }
+    const d1 = AX[i], d2 = BX[j];
+    const r = [c1[0] - c2[0], c1[1] - c2[1], c1[2] - c2[2]];
+    const b = dot(d1, d2), c = dot(d1, r), f = dot(d2, r);
+    const denom = 1 - b * b;
+    let s = 0, t = 0;
+    if (denom > 1e-9) {
+      t = (f - b * c) / denom;
+      s = t * b - c;
+    }
+    s = Math.max(-ha[i], Math.min(ha[i], s));
+    t = Math.max(-hb[j], Math.min(hb[j], t));
+    const p1 = [c1[0] + d1[0] * s, c1[1] + d1[1] * s, c1[2] + d1[2] * s];
+    const p2 = [c2[0] + d2[0] * t, c2[1] + d2[1] * t, c2[2] + d2[2] * t];
+    list.add(A, B, (p1[0] + p2[0]) * 0.5, (p1[1] + p2[1]) * 0.5, (p1[2] + p2[2]) * 0.5, n[0], n[1], n[2], depth);
+  }
+  function collide(a, b, list) {
+    if (a.shape.kind > b.shape.kind) {
+      const t = a;
+      a = b;
+      b = t;
+    }
+    const before = list.count;
+    const ka = a.shape.kind, kb = b.shape.kind;
+    if (ka === KIND_PLANE) {
+      if (kb === KIND_BOX) planeBox(a, b, list);
+      else if (kb === KIND_SPHERE) planeSphere(a, b, list);
+    } else if (ka === KIND_BOX) {
+      if (kb === KIND_BOX) boxBox(a, b, list);
+      else boxSphere(a, b, list);
+    } else {
+      sphereSphere(a, b, list);
+    }
+    return list.count - before;
+  }
+  function raycastBody(body, ox, oy, oz, dx, dy, dz, maxDistance, normalOut) {
+    const kind = body.shape.kind;
+    const p = body.position;
+    if (kind === KIND_SPHERE) {
+      const r = body.shape.radius;
+      const ex = ox - p.x, ey = oy - p.y, ez = oz - p.z;
+      const b = ex * dx + ey * dy + ez * dz;
+      const c = ex * ex + ey * ey + ez * ez - r * r;
+      if (c > 0 && b > 0) return -1;
+      const disc = b * b - c;
+      if (disc < 0) return -1;
+      const t = -b - Math.sqrt(disc);
+      if (t < 0 || t > maxDistance) return -1;
+      normalOut[0] = (ex + dx * t) / r;
+      normalOut[1] = (ey + dy * t) / r;
+      normalOut[2] = (ez + dz * t) / r;
+      return t;
+    }
+    if (kind === KIND_PLANE) {
+      const pl = worldPlane(body, _plane);
+      const side = pl[0] * ox + pl[1] * oy + pl[2] * oz - pl[3];
+      const denom = pl[0] * dx + pl[1] * dy + pl[2] * dz;
+      if (side < 0 || denom >= 0) return -1;
+      const t = -side / denom;
+      if (t > maxDistance) return -1;
+      normalOut[0] = pl[0];
+      normalOut[1] = pl[1];
+      normalOut[2] = pl[2];
+      return t;
+    }
+    const R = body.rotation, h = body.shape.halfExtents;
+    const rx = ox - p.x, ry = oy - p.y, rz = oz - p.z;
+    const lo = [R[0] * rx + R[3] * ry + R[6] * rz, R[1] * rx + R[4] * ry + R[7] * rz, R[2] * rx + R[5] * ry + R[8] * rz];
+    const ld = [R[0] * dx + R[3] * dy + R[6] * dz, R[1] * dx + R[4] * dy + R[7] * dz, R[2] * dx + R[5] * dy + R[8] * dz];
+    const half = [h.x, h.y, h.z];
+    let tMin = -Infinity, tMax = Infinity, hitAxis = 0, hitSign = 1;
+    for (let i = 0; i < 3; i++) {
+      if (Math.abs(ld[i]) < 1e-12) {
+        if (Math.abs(lo[i]) > half[i]) return -1;
+        continue;
+      }
+      let t1 = (-half[i] - lo[i]) / ld[i], t2 = (half[i] - lo[i]) / ld[i];
+      let sign = -1;
+      if (t1 > t2) {
+        const tmp = t1;
+        t1 = t2;
+        t2 = tmp;
+        sign = 1;
+      }
+      if (t1 > tMin) {
+        tMin = t1;
+        hitAxis = i;
+        hitSign = sign;
+      }
+      if (t2 < tMax) tMax = t2;
+      if (tMin > tMax) return -1;
+    }
+    if (tMin < 0 || tMin > maxDistance) return -1;
+    const nl = [0, 0, 0];
+    nl[hitAxis] = hitSign;
+    normalOut[0] = R[0] * nl[0] + R[1] * nl[1] + R[2] * nl[2];
+    normalOut[1] = R[3] * nl[0] + R[4] * nl[1] + R[5] * nl[2];
+    normalOut[2] = R[6] * nl[0] + R[7] * nl[1] + R[8] * nl[2];
+    return tMin;
+  }
+
+  // src/physics/PhysicsWorld.js
+  var ZERO_INERTIA = new Float64Array(9);
+  var MAX_ANGULAR_SPEED = 200;
+  var _normal = new Float64Array(3);
+  var PhysicsWorld = class {
+    /**
+     * @param {object} [options]
+     * @param {Vector3} [options.gravity] default (0, -9.81, 0)
+     * @param {number} [options.fixedTimeStep=1/60] seconds per simulation step
+     * @param {number} [options.maxSubSteps=5] most steps per step() call; extra time is dropped
+     * @param {number} [options.solverIterations=20]
+     * @param {boolean} [options.allowSleep=true]
+     */
+    constructor(options = {}) {
+      const {
+        gravity = new Vector3(0, -9.81, 0),
+        fixedTimeStep = 1 / 60,
+        maxSubSteps = 5,
+        solverIterations = 20,
+        allowSleep = true
+      } = options;
+      if (!(fixedTimeStep > 0)) throw new RangeError(`Prism.js: fixedTimeStep must be > 0, received ${String(fixedTimeStep)}.`);
+      if (!Number.isInteger(maxSubSteps) || maxSubSteps < 1) throw new RangeError("Prism.js: maxSubSteps must be an integer >= 1.");
+      if (!Number.isInteger(solverIterations) || solverIterations < 1) throw new RangeError("Prism.js: solverIterations must be an integer >= 1.");
+      this.gravity = new Vector3().copy(gravity);
+      this.fixedTimeStep = fixedTimeStep;
+      this.maxSubSteps = maxSubSteps;
+      this.solverIterations = solverIterations;
+      this.allowSleep = allowSleep;
+      this.baumgarte = 0.2;
+      this.penetrationSlop = 5e-3;
+      this.maxCorrectionSpeed = 3;
+      this.restitutionThreshold = 1;
+      this.sleepTime = 0.5;
+      this.sleepLinearSpeed = 0.1;
+      this.sleepAngularSpeed = 0.1;
+      this.wakeSpeed = 0.25;
+      this.spinFriction = 0.02;
+      this.warmStarting = true;
+      this.warmStartDistance = 0.05;
+      this.onContact = null;
+      this.bodies = [];
+      this.contacts = new ContactList();
+      this.stats = { bodies: 0, awake: 0, contacts: 0, stepMs: 0, subSteps: 0 };
+      this._accumulator = 0;
+      this._cache = /* @__PURE__ */ new Map();
+      this._nextCache = /* @__PURE__ */ new Map();
+      this._sorted = [];
+      this._planes = [];
+    }
+    addBody(body) {
+      if (!body || !body.isRigidBody) throw new TypeError("Prism.js: PhysicsWorld.addBody() expects a RigidBody.");
+      if (this.bodies.includes(body)) throw new Error("Prism.js: This RigidBody is already in the world.");
+      this.bodies.push(body);
+      this._syncObject(body);
+      return body;
+    }
+    /** Removes a body. Sleeping bodies are woken because their support may have been removed. */
+    removeBody(body) {
+      const index = this.bodies.indexOf(body);
+      if (index === -1) return false;
+      this.bodies.splice(index, 1);
+      this.wakeAll();
+      return true;
+    }
+    wakeAll() {
+      for (const body of this.bodies) body.wakeUp();
+    }
+    /** Advances the simulation by `deltaTime` seconds using fixed steps. */
+    step(deltaTime) {
+      if (!(deltaTime >= 0) || !Number.isFinite(deltaTime)) {
+        throw new RangeError(`Prism.js: PhysicsWorld.step() needs a finite deltaTime >= 0, received ${String(deltaTime)}.`);
+      }
+      const start = typeof performance !== "undefined" ? performance.now() : 0;
+      this._accumulator += deltaTime;
+      let steps = 0;
+      while (this._accumulator >= this.fixedTimeStep && steps < this.maxSubSteps) {
+        this._fixedStep(this.fixedTimeStep);
+        this._accumulator -= this.fixedTimeStep;
+        steps++;
+      }
+      if (steps === this.maxSubSteps) this._accumulator = 0;
+      if (steps > 0) for (const body of this.bodies) {
+        body.force.set(0, 0, 0);
+        body.torque.set(0, 0, 0);
+      }
+      let awake = 0;
+      for (const body of this.bodies) if (body.invMass > 0 && !body.sleeping) awake++;
+      this.stats.bodies = this.bodies.length;
+      this.stats.awake = awake;
+      this.stats.contacts = this.contacts.count;
+      this.stats.subSteps = steps;
+      this.stats.stepMs = typeof performance !== "undefined" ? performance.now() - start : 0;
+    }
+    _fixedStep(dt) {
+      const bodies = this.bodies, g = this.gravity;
+      for (const body of bodies) {
+        body.updateRotation();
+        body._im = body.sleeping ? 0 : body.invMass;
+        body._ii = body.sleeping ? ZERO_INERTIA : body.invInertiaWorld;
+        if (body.invMass === 0 || body.sleeping) continue;
+        const v = body.velocity, w = body.angularVelocity, f = body.force, t = body.torque, I = body.invInertiaWorld;
+        const k = body.invMass, gs = body.gravityScale;
+        v.x += (g.x * gs + f.x * k) * dt;
+        v.y += (g.y * gs + f.y * k) * dt;
+        v.z += (g.z * gs + f.z * k) * dt;
+        w.x += (I[0] * t.x + I[1] * t.y + I[2] * t.z) * dt;
+        w.y += (I[3] * t.x + I[4] * t.y + I[5] * t.z) * dt;
+        w.z += (I[6] * t.x + I[7] * t.y + I[8] * t.z) * dt;
+        const lin = Math.pow(1 - body.linearDamping, dt), ang = Math.pow(1 - body.angularDamping, dt);
+        v.multiplyScalar(lin);
+        w.multiplyScalar(ang);
+        const ws = w.length();
+        if (ws > MAX_ANGULAR_SPEED) w.multiplyScalar(MAX_ANGULAR_SPEED / ws);
+      }
+      this.contacts.reset();
+      this._collideAll();
+      this._solve(dt);
+      if (this.onContact !== null) {
+        for (let i = 0; i < this.contacts.count; i++) this.onContact(this.contacts.items[i]);
+      }
+      for (const body of bodies) {
+        if (body.shape.kind === KIND_PLANE || body.sleeping) continue;
+        const v = body.velocity, pv = body._pv, pw = body._pw;
+        if (body.invMass === 0 && v.lengthSq() === 0 && body.angularVelocity.lengthSq() === 0) continue;
+        body.position.x += (v.x + pv.x) * dt;
+        body.position.y += (v.y + pv.y) * dt;
+        body.position.z += (v.z + pv.z) * dt;
+        const w = { x: body.angularVelocity.x + pw.x, y: body.angularVelocity.y + pw.y, z: body.angularVelocity.z + pw.z };
+        pv.set(0, 0, 0);
+        pw.set(0, 0, 0);
+        const q = body.quaternion, h = 0.5 * dt;
+        const qx = q.x, qy = q.y, qz = q.z, qw = q.w;
+        q.set(
+          qx + h * (w.x * qw + w.y * qz - w.z * qy),
+          qy + h * (w.y * qw + w.z * qx - w.x * qz),
+          qz + h * (w.z * qw + w.x * qy - w.y * qx),
+          qw + h * (-w.x * qx - w.y * qy - w.z * qz)
+        ).normalize();
+      }
+      if (this.allowSleep) {
+        const lin2 = this.sleepLinearSpeed ** 2, ang2 = this.sleepAngularSpeed ** 2;
+        for (const body of bodies) {
+          if (body.invMass === 0 || body.sleeping || !body.allowSleep) continue;
+          if (body.velocity.lengthSq() < lin2 && body.angularVelocity.lengthSq() < ang2) {
+            body.sleepTimer += dt;
+            if (body.sleepTimer >= this.sleepTime) {
+              body.sleeping = true;
+              body.velocity.set(0, 0, 0);
+              body.angularVelocity.set(0, 0, 0);
+            }
+          } else {
+            body.sleepTimer = 0;
+          }
+        }
+      }
+      for (const body of bodies) this._syncObject(body);
+    }
+    _syncObject(body) {
+      const o = body.object;
+      if (o && body.shape.kind !== KIND_PLANE) {
+        o.position.copy(body.position);
+        o.quaternion.copy(body.quaternion);
+      }
+    }
+    // ---------- broad phase ----------
+    _collideAll() {
+      const sorted = this._sorted, planes = this._planes;
+      sorted.length = 0;
+      planes.length = 0;
+      for (const body of this.bodies) {
+        if (body.shape.kind === KIND_PLANE) {
+          planes.push(body);
+          continue;
+        }
+        if (body._aabb === void 0) body._aabb = new Float64Array(6);
+        computeAABB(body, body._aabb);
+        sorted.push(body);
+      }
+      for (let i = 1; i < sorted.length; i++) {
+        const item = sorted[i], key = item._aabb[0];
+        let j = i - 1;
+        while (j >= 0 && sorted[j]._aabb[0] > key) {
+          sorted[j + 1] = sorted[j];
+          j--;
+        }
+        sorted[j + 1] = item;
+      }
+      for (let i = 0; i < sorted.length; i++) {
+        const a = sorted[i], ab = a._aabb;
+        for (let j = i + 1; j < sorted.length; j++) {
+          const b = sorted[j], bb = b._aabb;
+          if (bb[0] > ab[3]) break;
+          if (bb[1] > ab[4] || bb[4] < ab[1] || bb[2] > ab[5] || bb[5] < ab[2]) continue;
+          this._testPair(a, b);
+        }
+      }
+      for (const plane of planes) {
+        for (const body of sorted) this._testPair(plane, body);
+      }
+    }
+    _isMover(body) {
+      return body.invMass > 0 ? !body.sleeping : body.velocity.lengthSq() > 0 || body.angularVelocity.lengthSq() > 0;
+    }
+    _speedSq(body) {
+      return body.velocity.lengthSq() + body.angularVelocity.lengthSq();
+    }
+    _testPair(a, b) {
+      if (a.invMass === 0 && b.invMass === 0) return;
+      if (!(a.collisionGroup & b.collisionMask && b.collisionGroup & a.collisionMask)) return;
+      const aMoves = this._isMover(a), bMoves = this._isMover(b);
+      if (!aMoves && !bMoves) return;
+      const wake2 = this.wakeSpeed * this.wakeSpeed;
+      if (a.sleeping && bMoves && this._speedSq(b) > wake2) a.wakeUp();
+      else if (b.sleeping && aMoves && this._speedSq(a) > wake2) b.wakeUp();
+      const count = collide(a, b, this.contacts);
+      if (count > 0) {
+        if (!a.sleeping) {
+          a._im = a.invMass;
+          a._ii = a.invInertiaWorld;
+        }
+        if (!b.sleeping) {
+          b._im = b.invMass;
+          b._ii = b.invInertiaWorld;
+        }
+      }
+    }
+    // ---------- solver ----------
+    _solve(dt) {
+      const items = this.contacts.items, n = this.contacts.count;
+      const beta = this.baumgarte / dt, slop = this.penetrationSlop;
+      const maxBias = this.maxCorrectionSpeed, threshold = this.restitutionThreshold, spin = this.spinFriction;
+      for (let i = 0; i < n; i++) {
+        const c = items[i], A = c.a, B = c.b;
+        c.rax = c.px - A.position.x;
+        c.ray = c.py - A.position.y;
+        c.raz = c.pz - A.position.z;
+        c.rbx = c.px - B.position.x;
+        c.rby = c.py - B.position.y;
+        c.rbz = c.pz - B.position.z;
+        if (Math.abs(c.nx) >= 0.57735) {
+          c.t1x = c.ny;
+          c.t1y = -c.nx;
+          c.t1z = 0;
+        } else {
+          c.t1x = 0;
+          c.t1y = c.nz;
+          c.t1z = -c.ny;
+        }
+        const tl = Math.hypot(c.t1x, c.t1y, c.t1z);
+        c.t1x /= tl;
+        c.t1y /= tl;
+        c.t1z /= tl;
+        c.t2x = c.ny * c.t1z - c.nz * c.t1y;
+        c.t2y = c.nz * c.t1x - c.nx * c.t1z;
+        c.t2z = c.nx * c.t1y - c.ny * c.t1x;
+        c.invKN = invEffectiveMass(c, c.nx, c.ny, c.nz);
+        c.invKT1 = invEffectiveMass(c, c.t1x, c.t1y, c.t1z);
+        c.invKT2 = invEffectiveMass(c, c.t2x, c.t2y, c.t2z);
+        c.invKS = invAngularMass(c, c.nx, c.ny, c.nz);
+        c.accS = 0;
+        const vn = relativeVelocity(c, c.nx, c.ny, c.nz);
+        const e = Math.max(A.restitution, B.restitution);
+        const bounce = vn < -threshold ? -e * vn : 0;
+        c.target = bounce;
+        c.bias = Math.min(beta * Math.max(c.depth - slop, 0), maxBias);
+        c.accP = 0;
+        c.mu = Math.sqrt(A.friction * B.friction);
+        c.accN = c.accT1 = c.accT2 = 0;
+      }
+      if (this.warmStarting) for (let i = 0; i < n; i++) this._warmStart(items[i]);
+      for (let it = 0; it < this.solverIterations; it++) {
+        for (let i = 0; i < n; i++) {
+          const c = items[i];
+          const vn = relativeVelocity(c, c.nx, c.ny, c.nz);
+          let lambda = (c.target - vn) * c.invKN;
+          const accN = Math.max(c.accN + lambda, 0);
+          lambda = accN - c.accN;
+          c.accN = accN;
+          applyImpulse(c, c.nx * lambda, c.ny * lambda, c.nz * lambda);
+          const maxF = c.mu * c.accN;
+          let vt = relativeVelocity(c, c.t1x, c.t1y, c.t1z);
+          lambda = -vt * c.invKT1;
+          let acc = Math.max(-maxF, Math.min(maxF, c.accT1 + lambda));
+          lambda = acc - c.accT1;
+          c.accT1 = acc;
+          applyImpulse(c, c.t1x * lambda, c.t1y * lambda, c.t1z * lambda);
+          vt = relativeVelocity(c, c.t2x, c.t2y, c.t2z);
+          lambda = -vt * c.invKT2;
+          acc = Math.max(-maxF, Math.min(maxF, c.accT2 + lambda));
+          lambda = acc - c.accT2;
+          c.accT2 = acc;
+          applyImpulse(c, c.t2x * lambda, c.t2y * lambda, c.t2z * lambda);
+          if (spin > 0 && c.invKS > 0) {
+            const wa = c.a.angularVelocity, wb = c.b.angularVelocity;
+            const rel = (wb.x - wa.x) * c.nx + (wb.y - wa.y) * c.ny + (wb.z - wa.z) * c.nz;
+            const maxS = spin * c.accN;
+            acc = Math.max(-maxS, Math.min(maxS, c.accS - rel * c.invKS));
+            lambda = acc - c.accS;
+            c.accS = acc;
+            applyAngularImpulse(c, c.nx * lambda, c.ny * lambda, c.nz * lambda);
+          }
+        }
+      }
+      for (let i = 0; i < n; i++) items[i].normalImpulse = items[i].accN;
+      this._storeImpulses();
+      for (let it = 0; it < this.solverIterations; it++) {
+        for (let i = 0; i < n; i++) {
+          const c = items[i];
+          if (c.bias <= 0) continue;
+          let lambda = (c.bias - relativeVelocity(c, c.nx, c.ny, c.nz, true)) * c.invKN;
+          const acc = Math.max(c.accP + lambda, 0);
+          lambda = acc - c.accP;
+          c.accP = acc;
+          applyImpulse(c, c.nx * lambda, c.ny * lambda, c.nz * lambda, true);
+        }
+      }
+    }
+    /**
+     * Finds the same contact in last step's cache (same pair, nearby point) and applies its
+     * impulses again as the starting guess. Friction impulses are cached as world vectors on the
+     * body with the higher id, so they stay valid when the pair's order or tangent basis changes.
+     */
+    _warmStart(c) {
+      const list = this._cache.get(pairKey(c.a, c.b));
+      if (list === void 0) return;
+      let best = null, bestD = this.warmStartDistance * this.warmStartDistance;
+      for (let k = 0; k < list.length; k++) {
+        const r = list[k];
+        if (r.used) continue;
+        const d = (r.px - c.px) ** 2 + (r.py - c.py) ** 2 + (r.pz - c.pz) ** 2;
+        if (d < bestD) {
+          bestD = d;
+          best = r;
+        }
+      }
+      if (best === null) return;
+      best.used = true;
+      const sign = c.b.id > c.a.id ? 1 : -1;
+      const fx = best.fx * sign, fy = best.fy * sign, fz = best.fz * sign;
+      c.accN = best.accN;
+      c.accT1 = fx * c.t1x + fy * c.t1y + fz * c.t1z;
+      c.accT2 = fx * c.t2x + fy * c.t2y + fz * c.t2z;
+      applyImpulse(
+        c,
+        c.nx * c.accN + c.t1x * c.accT1 + c.t2x * c.accT2,
+        c.ny * c.accN + c.t1y * c.accT1 + c.t2y * c.accT2,
+        c.nz * c.accN + c.t1z * c.accT1 + c.t2z * c.accT2
+      );
+    }
+    _storeImpulses() {
+      const next = this._nextCache, items = this.contacts.items;
+      next.clear();
+      for (let i = 0; i < this.contacts.count; i++) {
+        const c = items[i];
+        const sign = c.b.id > c.a.id ? 1 : -1;
+        const key = pairKey(c.a, c.b);
+        let list = next.get(key);
+        if (list === void 0) {
+          list = [];
+          next.set(key, list);
+        }
+        list.push({
+          px: c.px,
+          py: c.py,
+          pz: c.pz,
+          accN: c.accN,
+          used: false,
+          fx: (c.t1x * c.accT1 + c.t2x * c.accT2) * sign,
+          fy: (c.t1y * c.accT1 + c.t2y * c.accT2) * sign,
+          fz: (c.t1z * c.accT1 + c.t2z * c.accT2) * sign
+        });
+      }
+      this._cache = next;
+      this._nextCache = /* @__PURE__ */ new Map();
+    }
+    /**
+     * Nearest solid hit along a ray, or null. `direction` is normalized for you.
+     * A ray that starts inside a sphere or box does not hit it; planes block from their front side.
+     * @returns {{ body: object, distance: number, point: Vector3, normal: Vector3 } | null}
+     */
+    raycast(origin, direction, maxDistance = Infinity) {
+      const len = Math.hypot(direction.x, direction.y, direction.z);
+      if (len === 0) throw new RangeError("Prism.js: raycast direction must not be the zero vector.");
+      const dx = direction.x / len, dy = direction.y / len, dz = direction.z / len;
+      let best = null, bestT = maxDistance;
+      for (const body of this.bodies) {
+        if (body.rotation === void 0) continue;
+        const t = raycastBody(body, origin.x, origin.y, origin.z, dx, dy, dz, bestT, _normal);
+        if (t >= 0 && t <= bestT) {
+          bestT = t;
+          best = { body, distance: t, point: new Vector3(origin.x + dx * t, origin.y + dy * t, origin.z + dz * t), normal: new Vector3(_normal[0], _normal[1], _normal[2]) };
+        }
+      }
+      return best;
+    }
+    /** Total kinetic energy of all dynamic bodies (joules, if you use SI units). */
+    get kineticEnergy() {
+      let sum = 0;
+      for (const body of this.bodies) sum += body.kineticEnergy;
+      return sum;
+    }
+  };
+  function pairKey(a, b) {
+    return a.id < b.id ? a.id * 4194304 + b.id : b.id * 4194304 + a.id;
+  }
+  function invEffectiveMass(c, dx, dy, dz) {
+    const A = c.a, B = c.b;
+    let k = A._im + B._im;
+    let ax = c.ray * dz - c.raz * dy, ay = c.raz * dx - c.rax * dz, az = c.rax * dy - c.ray * dx;
+    let I = A._ii;
+    k += ax * (I[0] * ax + I[1] * ay + I[2] * az) + ay * (I[3] * ax + I[4] * ay + I[5] * az) + az * (I[6] * ax + I[7] * ay + I[8] * az);
+    ax = c.rby * dz - c.rbz * dy;
+    ay = c.rbz * dx - c.rbx * dz;
+    az = c.rbx * dy - c.rby * dx;
+    I = B._ii;
+    k += ax * (I[0] * ax + I[1] * ay + I[2] * az) + ay * (I[3] * ax + I[4] * ay + I[5] * az) + az * (I[6] * ax + I[7] * ay + I[8] * az);
+    return k > 0 ? 1 / k : 0;
+  }
+  function invAngularMass(c, nx, ny, nz) {
+    let k = 0;
+    for (const I of [c.a._ii, c.b._ii]) {
+      k += nx * (I[0] * nx + I[1] * ny + I[2] * nz) + ny * (I[3] * nx + I[4] * ny + I[5] * nz) + nz * (I[6] * nx + I[7] * ny + I[8] * nz);
+    }
+    return k > 0 ? 1 / k : 0;
+  }
+  function applyAngularImpulse(c, tx, ty, tz) {
+    const A = c.a, B = c.b;
+    if (A._im > 0) {
+      const I = A._ii, w = A.angularVelocity;
+      w.x -= I[0] * tx + I[1] * ty + I[2] * tz;
+      w.y -= I[3] * tx + I[4] * ty + I[5] * tz;
+      w.z -= I[6] * tx + I[7] * ty + I[8] * tz;
+    }
+    if (B._im > 0) {
+      const I = B._ii, w = B.angularVelocity;
+      w.x += I[0] * tx + I[1] * ty + I[2] * tz;
+      w.y += I[3] * tx + I[4] * ty + I[5] * tz;
+      w.z += I[6] * tx + I[7] * ty + I[8] * tz;
+    }
+  }
+  function relativeVelocity(c, dx, dy, dz, pseudo = false) {
+    const va = pseudo ? c.a._pv : c.a.velocity, wa = pseudo ? c.a._pw : c.a.angularVelocity;
+    const vb = pseudo ? c.b._pv : c.b.velocity, wb = pseudo ? c.b._pw : c.b.angularVelocity;
+    const x = vb.x + wb.y * c.rbz - wb.z * c.rby - va.x - wa.y * c.raz + wa.z * c.ray;
+    const y = vb.y + wb.z * c.rbx - wb.x * c.rbz - va.y - wa.z * c.rax + wa.x * c.raz;
+    const z = vb.z + wb.x * c.rby - wb.y * c.rbx - va.z - wa.x * c.ray + wa.y * c.rax;
+    return x * dx + y * dy + z * dz;
+  }
+  function applyImpulse(c, px, py, pz, pseudo = false) {
+    const A = c.a, B = c.b;
+    const imA = A._im, imB = B._im;
+    if (imA > 0) {
+      const va = pseudo ? A._pv : A.velocity;
+      va.x -= px * imA;
+      va.y -= py * imA;
+      va.z -= pz * imA;
+      const tx = c.ray * pz - c.raz * py, ty = c.raz * px - c.rax * pz, tz = c.rax * py - c.ray * px;
+      const I = A._ii, w = pseudo ? A._pw : A.angularVelocity;
+      w.x -= I[0] * tx + I[1] * ty + I[2] * tz;
+      w.y -= I[3] * tx + I[4] * ty + I[5] * tz;
+      w.z -= I[6] * tx + I[7] * ty + I[8] * tz;
+    }
+    if (imB > 0) {
+      const vb = pseudo ? B._pv : B.velocity;
+      vb.x += px * imB;
+      vb.y += py * imB;
+      vb.z += pz * imB;
+      const tx = c.rby * pz - c.rbz * py, ty = c.rbz * px - c.rbx * pz, tz = c.rbx * py - c.rby * px;
+      const I = B._ii, w = pseudo ? B._pw : B.angularVelocity;
+      w.x += I[0] * tx + I[1] * ty + I[2] * tz;
+      w.y += I[3] * tx + I[4] * ty + I[5] * tz;
+      w.z += I[6] * tx + I[7] * ty + I[8] * tz;
+    }
+  }
 
   // src/renderer/WebGLState.js
   var WebGLState = class {
@@ -3321,7 +4521,7 @@ Built-in material types: ${Object.keys(SHADER_LIBRARY).join(", ")}.`
     }
     return document.createElement("canvas");
   }
-  function assertPositive2(name, value) {
+  function assertPositive3(name, value) {
     if (!Number.isFinite(value) || value <= 0) {
       throw new RangeError(`Prism.js: ${name} must be a positive finite number, received ${String(value)}.`);
     }
@@ -3352,7 +4552,7 @@ Built-in material types: ${Object.keys(SHADER_LIBRARY).join(", ")}.`
       if (canvas === null || typeof canvas !== "object" || typeof canvas.getContext !== "function") {
         throw new TypeError("Prism.js: The `canvas` option must be an HTMLCanvasElement.");
       }
-      assertPositive2("pixelRatio", pixelRatio);
+      assertPositive3("pixelRatio", pixelRatio);
       this.domElement = canvas;
       this.gl = this._createContext(canvas, {
         alpha,
@@ -3418,7 +4618,7 @@ Built-in material types: ${Object.keys(SHADER_LIBRARY).join(", ")}.`
     /** Changes drawing-buffer pixels per CSS pixel and resizes the buffer to match. */
     setPixelRatio(pixelRatio) {
       this._assertAlive();
-      assertPositive2("pixelRatio", pixelRatio);
+      assertPositive3("pixelRatio", pixelRatio);
       this._pixelRatio = pixelRatio;
       this.setSize(this.width, this.height, false);
     }
@@ -3428,8 +4628,8 @@ Built-in material types: ${Object.keys(SHADER_LIBRARY).join(", ")}.`
      */
     setSize(width, height, updateStyle = true) {
       this._assertAlive();
-      assertPositive2("width", width);
-      assertPositive2("height", height);
+      assertPositive3("width", width);
+      assertPositive3("height", height);
       const canvas = this.domElement;
       this.width = width;
       this.height = height;

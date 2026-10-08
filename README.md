@@ -12,17 +12,19 @@
   <img src="assets/preview-scene.png" alt="Pratinjau contoh 03-scene: kubus, planet, bulan, dan bola kaca di atas lantai grid" width="640">
 </p>
 
-> **Status: pre-alpha (v0.3.0).** Alur inti berjalan dari ujung ke ujung: math, scene graph, kamera, geometry, material, lampu, texture, pemuat **OBJ + MTL**, dan `renderer.render(scene, camera)`.
-> **Belum ada** shadow, specular, loader glTF, picking, maupun sistem animasi. Prism.js **belum** sebanding fiturnya dengan engine matang seperti Three.js. Rincian lengkap ada di [PROGRESS.md](PROGRESS.md).
+> **Status: pre-alpha (v0.4.0).** Alur inti berjalan dari ujung ke ujung: math, scene graph, kamera, geometry, material, lampu, texture, pemuat **OBJ + MTL**, **fisika rigid body**, dan `renderer.render(scene, camera)`.
+> **Belum ada** shadow, specular, loader glTF, picking terhadap mesh, animasi skeletal, serta joint/soft body pada fisika. Prism.js **belum** sebanding fiturnya dengan engine yang sudah matang; proyek ini tidak mengklaim lebih baik daripada engine lain, dan tidak ada perbandingan kinerja yang pernah diukur. Rincian lengkap ada di [PROGRESS.md](PROGRESS.md).
 
 ## Daftar isi
 
+- [Ringkasan fitur](#ringkasan-fitur)
 - [Kenapa Prism.js](#kenapa-prismjs)
 - [Instalasi](#instalasi)
 - [Mulai cepat](#mulai-cepat)
 - [CSS bantu](#css-bantu)
 - [Aset](#aset)
 - [Memuat model OBJ dan MTL](#memuat-model-obj-dan-mtl)
+- [Fisika (rigid body)](#fisika-rigid-body)
 - [Ringkasan API](#ringkasan-api)
 - [Contoh](#contoh)
 - [Arsitektur](#arsitektur)
@@ -32,6 +34,19 @@
 - [Pemecahan masalah](#pemecahan-masalah)
 - [Keterbatasan](#keterbatasan)
 - [Lisensi](#lisensi)
+
+## Ringkasan fitur
+
+| Area | Yang tersedia | Status uji |
+| --- | --- | --- |
+| Rendering | WebGL2, scene graph, kamera perspektif/ortografik, geometry (box, plane, sphere, kustom), `BasicMaterial`, `NormalMaterial`, `LambertMaterial`, transparansi, wireframe, culling sisi | unit test + 26 tes piksel di browser |
+| Pencahayaan | `AmbientLight`, `DirectionalLight`, `PointLight` (per piksel, hingga 4 + 4 lampu) | tes piksel (arah lampu, jangkauan, kamera berpindah) |
+| Texture | `Texture`, `TextureLoader` (PNG/JPEG/WebP sesuai browser), filter, wrapping, mipmap | tes piksel (orientasi dari PNG asli) |
+| Loader | `OBJLoader` + `MTLLoader` (warna, opacity, texture `map_Kd`) | unit test + memuat file nyata lewat HTTP |
+| Fisika | Rigid body: gravitasi, gaya/impuls/torsi, rotasi, tumbukan bola/kotak/bidang, restitusi, gesekan, tumpukan, sleeping, raycast, platform kinematik | ±50 tes numerik terhadap hukum fisika |
+| Alat bantu | Server dev, build `dist/` untuk CDN, halaman tes browser, skrip pembuat model contoh | berjalan |
+
+Belum ada: bayangan, specular/PBR, glTF, picking terhadap mesh, animasi skeletal, joint/soft body pada fisika. Daftar lengkap ada di [Keterbatasan](#keterbatasan).
 
 ## Kenapa Prism.js
 
@@ -46,8 +61,8 @@ Prinsip: API sederhana, inti kecil, modular, kode mudah dibaca, dan mengutamakan
 Cara tercepat, tanpa bundler. Taruh CSS (opsional) di `<head>` dan JS sebelum skripmu:
 
 ```html
-<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/JANUARPROGRAM/Prism.js@v0.3.0/dist/prism.css">
-<script src="https://cdn.jsdelivr.net/gh/JANUARPROGRAM/Prism.js@v0.3.0/dist/prism.js"></script>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/JANUARPROGRAM/Prism.js@v0.4.0/dist/prism.css">
+<script src="https://cdn.jsdelivr.net/gh/JANUARPROGRAM/Prism.js@v0.4.0/dist/prism.js"></script>
 ```
 
 Skrip itu membuat satu variabel global bernama `Prism` (misalnya `new Prism.Renderer(...)`).
@@ -63,13 +78,13 @@ File yang tersedia di rilis:
 | `dist/prism.min.css` | Versi CSS yang diminify. |
 | `assets/nama-file` | Aset (gambar, nanti texture dan model), lihat [Aset](#aset). |
 
-Ganti `@v0.3.0` dengan versi lain bila perlu. Untuk produksi, pakai tag versi yang tetap dan hindari `@main` karena isinya bisa berubah dan di-cache CDN.
+Ganti `@v0.4.0` dengan versi lain bila perlu. Untuk produksi, pakai tag versi yang tetap dan hindari `@main` karena isinya bisa berubah dan di-cache CDN.
 
 ### ES module lewat CDN
 
 ```html
 <script type="module">
-  import * as Prism from "https://cdn.jsdelivr.net/gh/JANUARPROGRAM/Prism.js@v0.3.0/dist/prism.module.js";
+  import * as Prism from "https://cdn.jsdelivr.net/gh/JANUARPROGRAM/Prism.js@v0.4.0/dist/prism.module.js";
 
   const renderer = new Prism.Renderer({ canvas: document.querySelector("canvas") });
 </script>
@@ -102,14 +117,14 @@ Satu file HTML lengkap yang menampilkan kubus berputar (jika dibuka dari repo in
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Kubus Prism.js</title>
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/JANUARPROGRAM/Prism.js@v0.3.0/dist/prism.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/JANUARPROGRAM/Prism.js@v0.4.0/dist/prism.css">
   <style>html, body { height: 100%; margin: 0; background: #0b0d17; }</style>
 </head>
 <body>
   <canvas id="canvas" class="prism-canvas prism-fullscreen"></canvas>
   <pre id="error" class="prism-error" hidden></pre>
 
-  <script src="https://cdn.jsdelivr.net/gh/JANUARPROGRAM/Prism.js@v0.3.0/dist/prism.js"></script>
+  <script src="https://cdn.jsdelivr.net/gh/JANUARPROGRAM/Prism.js@v0.4.0/dist/prism.js"></script>
   <script>
     try {
       const renderer = new Prism.Renderer({ canvas: document.getElementById("canvas") });
@@ -170,13 +185,13 @@ Material tanpa pencahayaan: `BasicMaterial` berwarna rata dan `NormalMaterial` d
 Folder [`assets/`](assets/) disiapkan untuk berkas pendukung. Setelah rilis, setiap berkas bisa diakses lewat pola:
 
 ```
-https://cdn.jsdelivr.net/gh/JANUARPROGRAM/Prism.js@v0.3.0/assets/nama-file
+https://cdn.jsdelivr.net/gh/JANUARPROGRAM/Prism.js@v0.4.0/assets/nama-file
 ```
 
 Contoh dengan berkas yang sudah ada:
 
 ```html
-<img src="https://cdn.jsdelivr.net/gh/JANUARPROGRAM/Prism.js@v0.3.0/assets/logo.svg" width="64" alt="Prism.js">
+<img src="https://cdn.jsdelivr.net/gh/JANUARPROGRAM/Prism.js@v0.4.0/assets/logo.svg" width="64" alt="Prism.js">
 ```
 
 | Berkas | Keterangan |
@@ -186,7 +201,7 @@ Contoh dengan berkas yang sudah ada:
 | `assets/models/crate.obj`, `crate.mtl`, `crate.png` | Kotak kayu bertekstur (OBJ + MTL + PNG). |
 | `assets/models/house.obj`, `house.mtl` | Rumah dengan tiga material (dinding, atap, pintu). |
 
-Model dan texture dari folder ini bisa dimuat langsung, misalnya `new Prism.OBJLoader().loadAsync("https://cdn.jsdelivr.net/gh/JANUARPROGRAM/Prism.js@v0.3.0/assets/models/crate.obj")` (lihat [Memuat model OBJ dan MTL](#memuat-model-obj-dan-mtl)). Jangan mengubah isi berkas pada tag yang sudah dirilis (CDN meng-cache); buat tag baru. Berkas contoh dibuat ulang dengan `npm run assets`.
+Model dan texture dari folder ini bisa dimuat langsung, misalnya `new Prism.OBJLoader().loadAsync("https://cdn.jsdelivr.net/gh/JANUARPROGRAM/Prism.js@v0.4.0/assets/models/crate.obj")` (lihat [Memuat model OBJ dan MTL](#memuat-model-obj-dan-mtl)). Jangan mengubah isi berkas pada tag yang sudah dirilis (CDN meng-cache); buat tag baru. Berkas contoh dibuat ulang dengan `npm run assets`.
 
 ## Ringkasan API
 
@@ -200,6 +215,7 @@ Model dan texture dari folder ini bisa dimuat langsung, misalnya `new Prism.OBJL
 | Lampu | `Light`, `AmbientLight`, `DirectionalLight`, `PointLight` |
 | Texture | `Texture`, `TextureLoader` |
 | Loader | `OBJLoader`, `MTLLoader`, `MaterialLibrary` |
+| Fisika | `PhysicsWorld`, `RigidBody`, `SphereShape`, `BoxShape`, `PlaneShape` |
 | Rendering | `Renderer`, `WebGLProgram` (level rendah) |
 | Konstanta | `FrontSide`, `BackSide`, `DoubleSide`, `NearestFilter`, `LinearFilter`, `LinearMipmapLinearFilter` (dan filter lain), `ClampToEdgeWrapping`, `RepeatWrapping`, `MirroredRepeatWrapping`, `DEG2RAD`, `RAD2DEG` |
 
@@ -325,7 +341,7 @@ scene.add(new Prism.AmbientLight(0xffffff, 0.6), new Prism.DirectionalLight(0xff
 `loadAsync` membaca baris `mtllib` di file `.obj`, memuat file `.mtl` di folder yang sama, lalu memuat texture (`map_Kd`) relatif terhadap file `.mtl`. Semua path dihitung relatif terhadap URL file yang menyebutkannya, jadi struktur folder model tetap utuh, termasuk dari CDN:
 
 ```js
-const base = "https://cdn.jsdelivr.net/gh/JANUARPROGRAM/Prism.js@v0.3.0/assets/models/";
+const base = "https://cdn.jsdelivr.net/gh/JANUARPROGRAM/Prism.js@v0.4.0/assets/models/";
 const house = await new Prism.OBJLoader().loadAsync(base + "house.obj");
 ```
 
@@ -361,6 +377,126 @@ Perilaku yang perlu diketahui:
 - Model tidak di-skala atau dipusatkan otomatis; `examples/05-obj` memberi contoh menghitung bounding box lalu menyesuaikannya.
 - Kinerja untuk model besar (ratusan ribu segitiga) belum diukur.
 
+## Fisika (rigid body)
+
+Prism.js punya mesin fisika benda tegar (rigid body) sendiri: `PhysicsWorld`, `RigidBody`, dan tiga bentuk tumbukan. Mesin ini **berdiri sendiri** dari renderer (hanya memakai math), jadi bisa dijalankan di Node untuk uji atau server, dan hasilnya dipasangkan ke `Mesh` lewat `body.object`.
+
+```js
+const world = new Prism.PhysicsWorld({ gravity: new Prism.Vector3(0, -9.81, 0) });
+
+// Lantai: bidang tak hingga dengan normal +Y yang melewati y = 0. Massa 0 = statis.
+world.addBody(new Prism.RigidBody({ shape: new Prism.PlaneShape(new Prism.Vector3(0, 1, 0), 0), mass: 0 }));
+
+// Kotak 1×1×1 kg yang jatuh; mesh-nya disinkronkan otomatis setiap langkah.
+const mesh = new Prism.Mesh(new Prism.BoxGeometry(1, 1, 1), new Prism.LambertMaterial({ color: 0xff6b6b }));
+scene.add(mesh);
+const body = new Prism.RigidBody({
+  shape: new Prism.BoxShape(1, 1, 1),   // ukuran PENUH, sama seperti BoxGeometry
+  mass: 1, position: new Prism.Vector3(0, 5, 0),
+  restitution: 0.3, friction: 0.6, object: mesh
+});
+world.addBody(body);
+
+let last = performance.now();
+function animate(now) {
+  world.step(Math.min((now - last) / 1000, 0.1));   // langkah tetap 1/60 s di dalam; aman untuk frame rate berapa pun
+  last = now;
+  renderer.render(scene, camera);
+  requestAnimationFrame(animate);
+}
+requestAnimationFrame(animate);
+```
+
+### Konsep dan satuan
+
+- Satuan bebas asal konsisten; yang paling mudah: meter, kilogram, detik (gravitasi bumi = 9,81). Ukuran benda sekitar 0,1–10 satuan memberi hasil terbaik.
+- `world.step(dt)` menjalankan **langkah tetap** (`fixedTimeStep`, default 1/60 s) sebanyak yang muat dalam `dt`, paling banyak `maxSubSteps` (default 5); sisa waktu dibuang bila tertinggal terlalu jauh (gerakan melambat, tidak macet). Hasil simulasi tidak bergantung pada frame rate.
+- `mass = 0` berarti massa tak hingga: benda **statis**. Jika benda statis diberi `velocity`, ia bergerak dengan kecepatan itu dan mendorong benda dinamis (**platform kinematik**), tetapi tidak terpengaruh tumbukan.
+- Restitusi dua benda digabung dengan `max`, gesekan dengan `√(μ₁·μ₂)`. Untuk lantai yang tidak memantulkan, beri `restitution: 0`.
+- `linearDamping` / `angularDamping` adalah fraksi kecepatan yang hilang per detik (bukan koefisien gaya).
+- Benda yang diam selama `sleepTime` (0,5 s) **tidur** dan tidak dihitung lagi sampai tersentuh benda yang cukup cepat, diberi gaya/impuls (`wakeUp()` otomatis), atau benda penopangnya dihapus. Matikan dengan `allowSleep: false` (per benda atau per world).
+- Memindahkan benda manual (teleport): ubah `body.position` / `body.quaternion`, nolkan `velocity` dan `angularVelocity`, lalu panggil `body.wakeUp()`.
+- `collisionGroup` dan `collisionMask` (bitmask) menentukan siapa menabrak siapa: A dan B bertabrakan jika `A.group & B.mask` dan `B.group & A.mask` keduanya bukan nol.
+
+### Bentuk dan benda
+
+| Kelas | Keterangan |
+| --- | --- |
+| `SphereShape(radius)` | Bola. |
+| `BoxShape(lebar, tinggi, dalam)` | Kotak yang bisa berputar (OBB). |
+| `PlaneShape(normal, konstanta)` | Setengah ruang tak hingga: titik dengan `normal·p < konstanta` adalah "padat". Hanya untuk benda statis; bisa digeser/diputar lewat pose benda. |
+| `RigidBody(opsi)` | `shape`, `mass`, `position`, `quaternion`, `velocity`, `angularVelocity`, `restitution` (0,3), `friction` (0,5), `linearDamping` / `angularDamping` (0,01), `gravityScale`, `allowSleep`, `collisionGroup`, `collisionMask`, `object` (Object3D yang disinkronkan), `userData`. |
+
+Anggota `RigidBody`: `applyForce(gaya, titik?)` dan `applyTorque(torsi)` (berlaku di langkah berikutnya; panggil lagi tiap frame untuk gaya terus-menerus), `applyImpulse(impuls, titik?)` (mengubah kecepatan seketika; dengan titik dunia juga memutar benda), `getVelocityAtPoint(titik)`, `wakeUp()`, `setMass(m)`, `kineticEnergy`, `sleeping`, `isDynamic`.
+
+### Opsi dan anggota `PhysicsWorld`
+
+| Anggota | Fungsi |
+| --- | --- |
+| `new PhysicsWorld({ gravity, fixedTimeStep, maxSubSteps, solverIterations, allowSleep })` | Default: `(0, -9.81, 0)`, 1/60, 5, 20, `true`. |
+| `addBody(b)`, `removeBody(b)` | Menambah/menghapus benda; menghapus membangunkan semua benda yang tidur. |
+| `step(dt)` | Maju `dt` detik (lihat di atas). |
+| `raycast(asal, arah, jarakMaks?)` | Benda terdekat yang kena sinar: `{ body, distance, point, normal }` atau `null`. Sinar yang dimulai di dalam bola/kotak tidak mengenainya; bidang hanya menghalangi dari sisi depan. |
+| `onContact` | Fungsi `fn(contact)` yang dipanggil per kontak setiap langkah tetap (`contact.a`, `.b`, titik, normal, `depth`, `normalImpulse`). |
+| `stats` | `bodies`, `awake`, `contacts`, `stepMs`, `subSteps` dari panggilan `step()` terakhir. |
+| `kineticEnergy` | Total energi kinetik semua benda dinamis. |
+| Penyetelan | `baumgarte` (0,2), `penetrationSlop` (0,005), `maxCorrectionSpeed` (3), `restitutionThreshold` (1 m/s), `sleepTime`, `sleepLinearSpeed`, `sleepAngularSpeed`, `wakeSpeed`, `spinFriction` (0,02), `warmStarting`, `warmStartDistance`. |
+
+Menembak dari layar ke dunia fisika (lihat [examples/06-physics](examples/06-physics/main.js)):
+
+```js
+const ndc = new Prism.Vector3(ndcX, ndcY, 0.5).unproject(camera);          // titik di dunia pada sinar layar
+const direction = ndc.sub(camera.position).normalize();
+const hit = world.raycast(camera.position, direction);                       // benda yang diketuk
+if (hit) hit.body.applyImpulse(direction.clone().multiplyScalar(8), hit.point);
+```
+
+`Vector3.project(camera)` dan `unproject(camera)` mengubah dunia ⇄ koordinat layar ternormalisasi (-1…1); matriks kamera harus mutakhir (`renderer.render()` atau `camera.updateMatrixWorld()`).
+
+### Apa yang dihitung
+
+| Bagian | Metode |
+| --- | --- |
+| Gerak | Hukum II Newton, integrasi **semi-implisit Euler**; orientasi diintegrasikan dengan kuaternion dan dinormalkan tiap langkah |
+| Rotasi | Torsi dan impuls bertitik; tensor inersia bola (2/5·m·r²) dan kotak (m/12·(b²+c²)) diputar ke ruang dunia tiap langkah |
+| Fase lebar | Sweep-and-prune pada sumbu x dengan insertion sort (hampir terurut tiap langkah) |
+| Fase sempit | bola–bola, bola–kotak, bola–bidang, kotak–bidang (hingga 8 titik), **kotak–kotak: SAT 15 sumbu + clipping muka** (kontak banyak titik untuk tumpukan stabil) dan titik terdekat antar-rusuk |
+| Solver | **Sequential impulse** (20 iterasi) dengan **warm starting**, restitusi, gesekan **Coulomb** (dua arah tangen, kerucut gesek), gesekan **puntir** (torsional), dan **split impulse** (koreksi penetrasi lewat pseudo-velocity sehingga tidak menambah energi) |
+| Tidur | Ambang kecepatan + waktu; benda tidur bertindak sebagai benda statis bagi tetangganya |
+
+### Hasil uji numerik
+
+Semua angka di bawah berasal dari tes otomatis (`npm test`, file `tests/physics.test.js`), dijalankan di Node tanpa WebGL:
+
+| Fenomena | Hasil yang diuji (toleransi di dalam tes) |
+| --- | --- |
+| Jatuh bebas | `y = y₀ − ½gt²` dengan galat ≤ 2% (galat integrator pada langkah 1/60 s); kecepatan horizontal proyektil konstan |
+| Pantulan | Tinggi pantul ≈ e²·h: e = 0,5 → 0,757 m (target 0,75); e = 0,8 → 2,00 m (target 1,92); e = 0 → tidak memantul |
+| Tumbukan | Momentum kekal eksak; energi kekal dalam 1% pada e = 1; massa tak sama sesuai rumus tumbukan lenting; e = 0 → kecepatan bersama |
+| Gesekan | Jarak berhenti `v²/(2μg)` dalam 0,3 m; μ gabungan `√(μ₁μ₂)` |
+| Bidang miring | Diam saat `tan θ < μ`; meluncur dengan `a = g(sin θ − μ cos θ)` dalam 12% |
+| Gelinding | Bola yang diberi spin berakhir menggelinding di `v = (2/7)·r·ω₀` (±0,15 m/s) |
+| Tumpukan | 3 kotak berdiri 6 s tanpa tidur: simpangan ≈ 0,001–0,002 m; kotak 20 kg di atas kotak 1 kg tidak amblas |
+| Tumpukan acak | 36 benda campuran dalam wadah tertutup: semua tetap di dalam, kecepatan < 40 m/s, mengendap dan tidur |
+| Energi | Benda yang dijatuhkan tidak pernah punya energi kinetik melebihi `m·g·h` (+3%) |
+| Deterministik | Dua simulasi identik memberi hasil identik bit-per-bit (di mesin JS yang sama) |
+
+Kinerja yang terukur **di sandbox pengembangan ini (Node/V8, CPU server)**: 300 benda yang sedang jatuh dan menumpuk ≈ 3,2 ms median per langkah 1/60 s (p95 ≈ 5,6 ms). **Belum diukur di HP atau browser sungguhan**, jadi anggap angka itu hanya petunjuk orde besarnya.
+
+### Batasan fisika (yang tidak ada)
+
+Mesin ini kompak dan teruji, tetapi **jauh dari lengkap** dibanding mesin fisika khusus seperti Rapier, Cannon atau Bullet. Belum ada:
+
+- Joint / constraint (engsel, pegas, rantai), motor, dan kendaraan
+- Soft body, kain, tali, dan fluida
+- **Continuous collision detection**: benda yang sangat cepat dan tipis bisa menembus dinding (kecilkan `fixedTimeStep` atau naikkan `maxSubSteps` untuk kecepatan tinggi)
+- Collider mesh/convex hull, bentuk gabungan (compound), kapsul, silinder, dan heightfield
+- Trigger volume (area tanpa tumbukan), karakter controller
+- Suku giroskopik: benda tak simetris yang berputar cepat tidak "tumbling" secara fisis penuh
+- Hambatan gelinding (rolling resistance): bola menggelinding tanpa kehilangan kecepatan selain lewat damping dan tumbukan
+- Multithreading; fase sempit kotak–kotak masih membuat array sementara tiap langkah (garbage), belum dioptimalkan
+- Jaminan hasil identik antar mesin JS/perangkat yang berbeda
+
 ## Contoh
 
 Jalankan `npm run dev`, lalu buka `http://localhost:8080/examples/`.
@@ -372,6 +508,7 @@ Jalankan `npm run dev`, lalu buka `http://localhost:8080/examples/`.
 | [`03-scene`](examples/03-scene/) | Scene graph, geometry, material, transparansi, wireframe, resize |
 | [`04-lighting`](examples/04-lighting/) | Lampu ambient, directional, dan point yang mengorbit pada `LambertMaterial` |
 | [`05-obj`](examples/05-obj/) | Viewer OBJ + MTL: model bawaan atau file dari perangkatmu (geser untuk memutar) |
+| [`06-physics`](examples/06-physics/) | Fisika rigid body: piramida kotak, hujan benda, ketuk untuk menembak |
 | [`cdn`](examples/cdn/) | Pemakaian lewat tag `<script>` dan CSS, tanpa bundler |
 
 ## Arsitektur
@@ -387,6 +524,7 @@ src/
   materials/      Material, BasicMaterial, NormalMaterial, LambertMaterial
   lights/         Light, AmbientLight, DirectionalLight, PointLight
   textures/       Texture
+  physics/        PhysicsWorld, RigidBody, shapes, collision (fase sempit + raycast)
   loaders/        OBJLoader, MTLLoader, TextureLoader, resolveURL, fetchText
   renderer/       Renderer, WebGLState (cache state), WebGLPrograms (cache program),
                   WebGLGeometries (buffer GPU), WebGLTextures, WebGLLights,
@@ -415,29 +553,29 @@ npm run build      # membuat dist/ (JS dan CSS)
 npm run assets     # membuat ulang model contoh di assets/models/
 ```
 
-Unit test berjalan terhadap mock context WebGL: yang diuji adalah logika, validasi argumen, pesan error, cache state, urutan gambar, pembebasan resource GPU, dan ketepatan numerik math. Test ini **tidak** memeriksa piksel. Untuk itu ada halaman tes browser: jalankan `npm run dev`, buka `http://localhost:8080/tests/browser/`, dan halaman itu merender adegan kecil di WebGL2 sungguhan lalu membandingkan warna piksel (lampu, texture, transparansi, culling, loader OBJ/MTL dengan file nyata). Halaman ini juga bisa dibuka dari HP untuk menguji perangkatmu sendiri.
+Unit test berjalan di Node tanpa GPU: renderer diuji terhadap mock context WebGL, dan fisika diuji langsung secara numerik. Untuk renderer: yang diuji adalah logika, validasi argumen, pesan error, cache state, urutan gambar, pembebasan resource GPU, dan ketepatan numerik math. Test ini **tidak** memeriksa piksel. Untuk itu ada halaman tes browser: jalankan `npm run dev`, buka `http://localhost:8080/tests/browser/`, dan halaman itu merender adegan kecil di WebGL2 sungguhan lalu membandingkan warna piksel (lampu, texture, transparansi, culling, loader OBJ/MTL dengan file nyata). Halaman ini juga bisa dibuka dari HP untuk menguji perangkatmu sendiri.
 
 ## Merilis ke GitHub dan jsDelivr
 
 jsDelivr (`/gh/`) menyajikan berkas langsung dari repo GitHub pada tag tertentu, jadi:
 
 1. **Unggah semua berkas**, termasuk folder `dist/` dan `assets/` (keduanya harus ada di repo).
-2. **Buat tag `v0.3.0`.** Lewat terminal:
+2. **Buat tag `v0.4.0`.** Lewat terminal:
    ```bash
-   git tag v0.3.0
-   git push origin v0.3.0
+   git tag v0.4.0
+   git push origin v0.4.0
    ```
-   atau lewat web GitHub: *Releases → Draft a new release → Choose a tag → ketik `v0.3.0` → Publish release*.
-3. **Cek URL** di browser, misalnya `https://cdn.jsdelivr.net/gh/JANUARPROGRAM/Prism.js@v0.3.0/dist/prism.js`.
-4. Jika berkas baru tidak langsung muncul, itu cache CDN. Kamu bisa meminta purge lewat `https://purge.jsdelivr.net/gh/JANUARPROGRAM/Prism.js@v0.3.0/dist/prism.js`.
-5. Setiap kali source berubah, jalankan `npm run build` dan commit hasil `dist/` sebelum membuat tag baru. Jangan mengubah isi tag yang sudah dirilis; buat versi baru (misalnya `v0.3.1`).
+   atau lewat web GitHub: *Releases → Draft a new release → Choose a tag → ketik `v0.4.0` → Publish release*.
+3. **Cek URL** di browser, misalnya `https://cdn.jsdelivr.net/gh/JANUARPROGRAM/Prism.js@v0.4.0/dist/prism.js`.
+4. Jika berkas baru tidak langsung muncul, itu cache CDN. Kamu bisa meminta purge lewat `https://purge.jsdelivr.net/gh/JANUARPROGRAM/Prism.js@v0.4.0/dist/prism.js`.
+5. Setiap kali source berubah, jalankan `npm run build` dan commit hasil `dist/` sebelum membuat tag baru. Jangan mengubah isi tag yang sudah dirilis; buat versi baru (misalnya `v0.4.1`).
 
 ## Pemecahan masalah
 
 | Gejala | Kemungkinan penyebab dan solusi |
 | --- | --- |
 | `Prism.js: Failed to create a WebGL2 context` | Browser/perangkat tidak mendukung WebGL2, akselerasi hardware dimatikan, atau canvas sudah punya context lain (mis. `"2d"`). Pesan error memuat keterangan dari browser jika ada. |
-| URL CDN menghasilkan 404 | Tag `v0.3.0` belum dibuat/di-push, atau folder `dist/` / `assets/` belum diunggah. Lihat [Merilis](#merilis-ke-github-dan-jsdelivr). |
+| URL CDN menghasilkan 404 | Tag `v0.4.0` belum dibuat/di-push, atau folder `dist/` / `assets/` belum diunggah. Lihat [Merilis](#merilis-ke-github-dan-jsdelivr). |
 | `Prism is not defined` | Tag `<script>` Prism.js harus dimuat **sebelum** skripmu, dan memakai `dist/prism.js` atau `dist/prism.min.js` (bukan `prism.module.js`; itu untuk `import`). |
 | Variabel global `Prism` bentrok | Library penyorot sintaks [PrismJS](https://prismjs.com) juga memakai nama global `Prism` dan nama berkas `prism.js`/`prism.css`. Jangan memuat keduanya pada halaman yang sama; gunakan `dist/prism.module.js` dengan `import * as Prism ...` (nama bisa kamu ganti) atau ganti nama berkas salinanmu. |
 | Layar kosong, tanpa error | Pastikan `renderer.render(scene, camera)` dipanggil terus (lewat `requestAnimationFrame`), objek berada di depan kamera (kamera menghadap -Z), dan `near`/`far` kamera mencakup objekmu. Jika canvas diatur CSS, panggil `renderer.resizeToDisplaySize()` dan perbarui `camera.aspect`. |
@@ -446,6 +584,9 @@ jsDelivr (`/gh/`) menyajikan berkas langsung dari repo GitHub pada tag tertentu,
 | Texture tidak muncul, objek hanya berwarna | Gambar belum selesai dimuat, URL salah (cek console), geometry tidak punya `uv`, atau gambar dari domain lain tanpa header CORS. |
 | Model OBJ tidak terlihat | Ukurannya sangat besar/kecil atau jauh dari origin (skala dan pusatkan model, lihat `examples/05-obj`), atau perlu `side: Prism.DoubleSide`. |
 | `Failed to load OBJ file ... (HTTP 404)` | Path atau tag salah. Path `mtllib` dan `map_Kd` dihitung relatif terhadap file yang menyebutkannya. |
+| Benda fisika menembus dinding / lantai | Kecepatan terlalu tinggi untuk benda setipis itu (tidak ada CCD): kecilkan `fixedTimeStep`, naikkan `maxSubSteps`, atau tebalkan penghalang. |
+| Tumpukan fisika bergetar atau melorot | Naikkan `solverIterations`, hindari rasio massa ekstrem (>20:1), dan biarkan `warmStarting` menyala. |
+| Benda fisika tidak bergerak setelah dipindah manual | Panggil `body.wakeUp()` dan nolkan kecepatannya setelah mengubah `position`. |
 | Error kompilasi shader | Pesan menyertakan log driver, nama program, dan potongan baris source yang bermasalah. |
 
 ## Keterbatasan
@@ -453,6 +594,7 @@ jsDelivr (`/gh/`) menyajikan berkas langsung dari repo GitHub pada tag tertentu,
 Belum ada, dan akan dikerjakan bertahap (urutan di [PROGRESS.md](PROGRESS.md)):
 
 - Bayangan, specular/PBR, environment map
+- Fisika: joint, soft body/kain/fluida, CCD, collider mesh/convex (rinci di [Batasan fisika](#batasan-fisika-yang-tidak-ada))
 - Loader glTF/GLB (OBJ + MTL sudah ada, tetapi tanpa specular, bump map, dan poligon cekung)
 - Frustum culling, instancing, dan optimasi lain yang diukur di GPU sungguhan
 - Shader/atribut kustom (`ShaderMaterial`)

@@ -1,6 +1,6 @@
 {
   "name": "prism.js",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "description": "A lightweight JavaScript 3D rendering engine built from scratch on top of WebGL/WebGL2.",
   "keywords": [
     "3d",

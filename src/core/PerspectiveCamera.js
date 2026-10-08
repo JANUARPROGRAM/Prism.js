@@ -22,6 +22,7 @@ export class PerspectiveCamera extends Camera {
 		if (!(aspect > 0)) throw new RangeError(`Prism.js: PerspectiveCamera aspect must be positive, received ${aspect}.`);
 		if (!(near > 0 && far > near)) throw new RangeError(`Prism.js: PerspectiveCamera requires 0 < near < far, received near=${near}, far=${far}.`);
 		this.projectionMatrix.makePerspective(fov * DEG2RAD, aspect, near, far);
+		this.projectionMatrixInverse.copy(this.projectionMatrix).invert();
 	}
 }
 PerspectiveCamera.prototype.isPerspectiveCamera = true;

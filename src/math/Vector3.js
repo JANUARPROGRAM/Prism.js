@@ -84,6 +84,21 @@ export class Vector3 {
 		this.z = e[2] * x + e[6] * y + e[10] * z;
 		return this.normalize();
 	}
+	/**
+	 * World -> normalized device coordinates (x, y, z in -1..1) for `camera`.
+	 * The camera's matrices must be current (renderer.render() or camera.updateMatrixWorld()).
+	 */
+	project(camera) {
+		return this.applyMatrix4(camera.matrixWorldInverse).applyMatrix4(camera.projectionMatrix);
+	}
+	/**
+	 * Normalized device coordinates -> world. With z = -1 the point is on the near plane and with
+	 * z = 1 on the far plane, so unproject((x, y, 0.5)) - cameraPosition is the direction of the ray
+	 * through that screen position.
+	 */
+	unproject(camera) {
+		return this.applyMatrix4(camera.projectionMatrixInverse).applyMatrix4(camera.matrixWorld);
+	}
 	setFromMatrixPosition(m) { const e = m.elements; return this.set(e[12], e[13], e[14]); }
 	setFromMatrixColumn(m, index) { return this.fromArray(m.elements, index * 4); }
 

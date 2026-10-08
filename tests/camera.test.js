@@ -79,3 +79,29 @@ test('OrthographicCamera maps its box to NDC and validates it', () => {
 	vecClose(project(camera, new Vector3(-5, -2, -21)), [-1, -1, 1]);
 	assert.throws(() => new OrthographicCamera(1, 1, 1, -1), RangeError);
 });
+
+test('Vector3.project / unproject are inverses for perspective and orthographic cameras', () => {
+	for (const camera of [new PerspectiveCamera(55, 1.6, 0.5, 80), new OrthographicCamera(-4, 4, 3, -3, 0.5, 60)]) {
+		camera.position.set(3, 2, 9);
+		camera.lookAt(-1, 0.5, 0);
+		camera.updateMatrixWorld();
+		for (const p of [[0, 0, 0], [-2, 1, -3], [1.5, -0.5, 2]]) {
+			const ndc = new Vector3(...p).project(camera);
+			vecClose(ndc.clone().unproject(camera), p, 1e-9);
+		}
+	}
+});
+
+test('unprojecting the screen center gives a ray along the camera direction; screen edges match the frustum', () => {
+	const camera = new PerspectiveCamera(60, 2, 0.1, 100);
+	camera.position.set(1, 2, 3);
+	camera.lookAt(1, 2, -5);
+	camera.updateMatrixWorld();
+	const dir = new Vector3(0, 0, 0.5).unproject(camera).sub(camera.position).normalize();
+	vecClose(dir, [0, 0, -1], 1e-9);
+	const right = new Vector3(1, 0, 0.5).unproject(camera).sub(camera.position).normalize();
+	// half-width of the view = tan(30°) * aspect at unit depth
+	close(right.x / -right.z, Math.tan(30 * DEG2RAD) * 2, 1e-9);
+	const world = new Vector3(0, 0, -1).unproject(camera);
+	close(world.distanceTo(camera.position), 0.1, 1e-9, 'near plane distance');
+});

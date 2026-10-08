@@ -19,6 +19,7 @@ export class OrthographicCamera extends Camera {
 			throw new RangeError('Prism.js: OrthographicCamera needs a non-empty box (left != right, top != bottom, near != far).');
 		}
 		this.projectionMatrix.makeOrthographic(left, right, top, bottom, near, far);
+		this.projectionMatrixInverse.copy(this.projectionMatrix).invert();
 	}
 }
 OrthographicCamera.prototype.isOrthographicCamera = true;

@@ -2,62 +2,49 @@
 
 ## Completed
 - **Phase 0 – Foundation**: ESM package, dev server, build scripts, README (Indonesian), LICENSE, tests, examples.
-- **Phase 1 – Math**: Vector2/3/4, Matrix3/4, Quaternion (slerp), Euler (6 orders, gimbal handling), Color.
-- **Phase 2 – Scene graph**: Object3D (lazy matrix updates, Euler<->quaternion sync, lookAt, traverse), Group, Scene, Mesh, Camera, Perspective/OrthographicCamera.
-- **Phase 3 – Renderer**: `render(scene, camera)`, program cache (per material type + textured variant), GPU geometry cache, texture cache, GL state cache, sorted render list, resize/pixel ratio, context loss with automatic rebuild, `renderer.info`, disposal.
-- **Phase 4 – Geometry**: BufferAttribute, BufferGeometry (computeVertexNormals), Box/Plane/SphereGeometry.
-- **Phase 5 – Materials**: Material, BasicMaterial, NormalMaterial, LambertMaterial; opacity, transparent, side, wireframe, depthTest, depthWrite, `map`.
-- **Phase 6 – Lighting**: Light, AmbientLight, DirectionalLight, PointLight (range + decay); per-pixel Lambert shader; lights packed in view space and uploaded once per program per frame; limits 4 directional + 4 point.
-- **Phase 7 – Textures**: Texture (image / canvas / ImageBitmap / raw RGBA), TextureLoader (Image based, CORS aware), filtering, wrapping, mipmaps, flipY, 1x1 white placeholder while loading, dispose.
-- **Phase 8 – Loaders**: OBJLoader (v/vt/vn/f in all four forms, negative indices, polygons, o/g/usemtl/mtllib, flat normals when missing, line-numbered errors), MTLLoader (Kd, d/Tr, map_Kd with options), MaterialLibrary, automatic mtllib + texture loading relative to each file, URL modifier for user-picked files.
-- Examples: 01 triangle, 02 game, 03 scene, 04 lighting, 05 obj (viewer with file picker), cdn (script tag + CSS).
-- Release packaging for jsDelivr: `dist/` committed (prism.js IIFE global `Prism`, prism.min.js, prism.module.js, prism.css, prism.min.css + maps); `assets/` (logo, preview, models/crate, models/house); `npm run assets` regenerates the models.
-- **Browser pixel checks** (`tests/browser/`): 26 checks against a real WebGL2 context.
+- **Phase 1 – Math**: Vector2/3/4 (`project` / `unproject`), Matrix3/4, Quaternion (slerp), Euler (6 orders), Color.
+- **Phase 2 – Scene graph**: Object3D (lazy matrix updates, Euler<->quaternion sync, lookAt), Group, Scene, Mesh, cameras (with `projectionMatrixInverse`).
+- **Phase 3 – Renderer**: `render(scene, camera)`, program / geometry / texture / state caches, sorted render list, resize, context-loss rebuild, `renderer.info`, disposal.
+- **Phase 4 – Geometry**, **Phase 5 – Materials** (Basic, Normal, Lambert, `map`), **Phase 6 – Lighting** (Ambient, Directional, Point), **Phase 7 – Textures**, **Phase 8 – Loaders** (OBJ + MTL + TextureLoader).
+- **Physics (new, v0.4.0)**: `PhysicsWorld`, `RigidBody`, `SphereShape` / `BoxShape` / `PlaneShape`. Fixed time step, sweep-and-prune, narrow phase for every shape pair (box-box = SAT over 15 axes + face clipping, edge-edge fallback), sequential-impulse solver with warm starting, restitution, Coulomb + torsional friction, split-impulse position correction, sleeping, collision groups/masks, kinematic platforms, forces / torques / impulses at a point, `raycast`, `onContact`, mesh sync via `body.object`.
+- Examples: 01 triangle, 02 game, 03 scene, 04 lighting, 05 obj, 06 physics, cdn.
+- Release packaging for jsDelivr: `dist/` committed; `assets/` (logo, preview, models).
+- Browser pixel checks (`tests/browser/`): 26 checks on a real WebGL2 context.
 
 ## In Progress
 - Nothing.
 
 ## Remaining
-- Phase 9 performance: frustum culling (needs bounding spheres), per-material uniform caching, instancing, real-GPU measurements.
-- glTF/GLB loader (only after the OBJ architecture proved stable; do not write a giant parser).
-- Specular/PBR, shadows, environment maps; more than 4+4 lights (or a defines-based variant).
-- Custom shaders/attributes (`ShaderMaterial`); today only attributes position/normal/uv/color are bound and `color` has no built-in shader yet.
-- MTL: specular, bump and opacity maps, `illum`; OBJ: concave polygon triangulation, smoothing groups.
-- Picking/raycaster, camera controls, animation system.
-- WebGL1 fallback decision; npm publish (name availability unchecked).
-- Examples 06-10 in the original plan are covered by 03-05; docs/ folder with an API reference.
+- Phase 9 performance: bounding spheres + frustum culling, per-material uniform caching, instancing, measurements on real devices (rendering AND physics).
+- glTF/GLB loader (small, built on the same loader conventions).
+- Physics: joints/constraints, continuous collision detection, capsule/cylinder/convex/mesh colliders, compound shapes, trigger volumes, rolling resistance, allocation-free box-box narrow phase, islands for per-group sleeping.
+- Rendering: shadows, specular/PBR, environment maps, more than 4+4 lights, ShaderMaterial, WebGL1 fallback decision.
+- Picking against meshes (raycaster for scene objects), camera controls, animation system, npm publish (name availability unchecked).
 
 ## Known Bugs / Limitations
-- The global name `Prism` (and file names prism.js / prism.css) collide with the PrismJS syntax highlighter on the same page (documented in the README).
-- `dist/` must be rebuilt (`npm run build`) and committed before every tag; nothing automates it.
-- LambertMaterial renders black without lights; lit materials need a `normal` attribute (clear error otherwise).
-- OBJ: concave polygons are fan-triangulated incorrectly; normals are flat when the file has none; the whole model's normals are recomputed if only some faces have `vn`.
-- Material uniforms are re-uploaded on every draw (cheap, not cached); no frustum culling; wireframe line indices are built on the CPU on first use.
-- Object3D.lookAt with a non-uniform-scaled parent is approximate.
-- Raw gl code mixed with `render()` must call `renderer.state.reset()` when it changes depth/cull/blend/program/VAO; raw-gl resources of user code are not rebuilt after a context restore.
-- Large OBJ models (hundreds of thousands of triangles): parsing uses string keys per vertex; not measured.
+- The global name `Prism` (and file names prism.js / prism.css) collide with the PrismJS highlighter on one page (README troubleshooting).
+- `dist/` must be rebuilt and committed before every tag; nothing automates it.
+- Physics: no joints, no CCD (fast thin bodies can tunnel), no gyroscopic term, no rolling resistance, planes only for static bodies, results not guaranteed identical across JS engines/devices, box-box narrow phase allocates temporary arrays.
+- Physics wake rule: a sleeping body only wakes when touched by something moving faster than `wakeSpeed` (0.25), so a very slow push is treated as resting against a static object.
+- Rendering limits as before: LambertMaterial black without lights; 4+4 lights; no frustum culling; OBJ concave polygons and specular/bump maps unsupported.
+- Raw gl code mixed with `render()` must call `renderer.state.reset()` when it changes depth/cull/blend/program/VAO.
 
 ## Verification status
-- VERIFIED (Node 22): 180 unit tests with a mock GL: logic, validation, error messages, state/program/texture/geometry caching, sort order, GPU-object cleanup, numerics (random-matrix inverse, Euler round trips, projection mapping, geometry winding), light packing in view space, OBJ/MTL parsing and loading with a stubbed `fetch`.
-- VERIFIED (headless Chromium 141, SwiftShader software GL): `tests/browser/` 26 of 26 pixel checks pass with unchanged tolerances (±3 levels): lighting N·L for many directions, view-space lights with moved cameras, point-light range/decay, transparent sorting, culling, wireframe, texture orientation through raw data and a real PNG decoded by the browser, texture x color, OBJ+MTL from text, and the real `assets/models` loaded over HTTP (crate texture, house materials).
-  - Two checks first failed by 6 and 4 levels; cause: an even-sized canvas puts the camera axis on a pixel boundary, so the "center pixel" sampled half a pixel off-axis. The checks now use a 65x65 canvas and pass exactly. No shader change was needed.
-- VERIFIED: examples 04 and 05 run without errors; 05's file picker loads obj+mtl+png and reports readable errors for a broken .obj and for a selection without .obj.
-- VERIFIED: `npm run build` (esbuild 0.27.7 found locally) and the bundle exports.
-- UNVERIFIED: the real jsDelivr URLs (repo not pushed / tag not created; sandbox has no network), `npm install` from the registry, Firefox, Safari, Edge, Android Chrome, real GPU drivers, any frame-time performance (the 23-60 fps seen is software rendering), any comparison with other engines.
+- VERIFIED (Node 22): full unit suite with a mock GL for rendering and direct numeric tests for physics (see the count printed by `npm test`).
+- VERIFIED physics numerics: free fall within 2% (semi-implicit Euler at 1/60 s), bounce height e²h (e=0.5 -> 0.757 vs 0.75, e=0.8 -> 2.00 vs 1.92), exact momentum conservation, energy within 1% at e=1, friction stopping distance v²/(2μg), slope hold / slide acceleration, rolling at (2/7)rω0, 3-box stack drift ≈ 0.001-0.002 m over 6 s, 20:1 mass ratio, 36-body pile settles and sleeps, no energy gain on impact, deterministic results, narrow-phase contact counts/normals/depths, ray casts.
+- VERIFIED physics benchmark in this sandbox only (Node/V8): 300 falling/stacking bodies ≈ 3.2 ms median per step, p95 ≈ 5.6 ms. NOT measured on phones or in browsers.
+- VERIFIED (headless Chromium 141, SwiftShader): tests/browser 26/26 pixel checks; examples 01-06 run without console errors; 06-physics spawn, rain, tap-to-shoot and reset work.
+- Bugs found and fixed while building the physics (kept here as a record): (1) Baumgarte position correction fed energy into real velocities (e=0 bodies popped up, inelastic collisions kept relative speed) -> replaced by split impulse; (2) warm-start impulses applied inside the preparation loop corrupted later contacts' pre-solve velocities and made 20-iteration stacks collapse -> warm start now runs after all contacts are prepared; (3) a spinning sphere never stopped spinning about the contact normal -> added torsional friction; (4) the example fed a negative first-frame dt (rAF timestamp earlier than performance.now()) -> clamped, and `step()` rejects negative dt; (5) several test expectations were wrong (restitution combines with max, contact point is midway in the gap) and were corrected only after checking the engine value against hand calculation.
+- UNVERIFIED: real jsDelivr URLs (repo not pushed, no network here), `npm install` from the registry, Firefox, Safari, Edge, Android Chrome, real GPU drivers, frame-time performance on any device, any comparison with other engines or physics libraries.
 
 ## Architecture Decisions
-- ES modules only, no TypeScript/framework, zero runtime dependencies. `src/` ships as-is; `dist/` is for script tags and is committed.
-- Only `src/index.js` is public API. Renderer internals (WebGLState/Programs/Geometries/Textures/Lights, RenderList) are not exported.
-- WebGL2 only; one `Renderer` class until a second backend exists.
-- Math in Float64 on the CPU; converted to Float32 into reused scratch arrays on upload.
-- Matrices column-major, right-handed, -Z forward; Euler "XYZ" means R = Rx*Ry*Rz; Euler and quaternion linked by change callbacks, Euler angles never re-wrapped.
-- Programs keyed by `material.type` (+ `:map` variant compiled with `#define USE_MAP`). Fixed attribute locations (position 0, normal 1, uv 2, color 3) so one VAO per geometry serves every program.
-- Lights are collected during the scene traversal into flat arrays in view space; shader constants MAX_DIR/MAX_POINT come from WebGLLights.js so JS and GLSL cannot disagree.
-- Textures use unit 0 only (one map per material); a not-yet-loaded image uploads a 1x1 white texel so the material color shows.
-- Loaders: a pure `parseOBJ` returns typed arrays (testable without GPU classes); `OBJLoader.parse` builds scene objects; URLs are resolved by plain string joining against the file that mentioned them; `setURLModifier` is the single hook for custom sources (blob/data URLs, embedded files).
-- Index buffers use Uint16 only when max index <= 65534 (65535 is WebGL2's primitive-restart value).
-- Disposal via listener sets (geometry/material/texture) so core classes never depend on the renderer.
-- Unknown material options throw; `Color` is not color-managed.
+- ES modules only, zero runtime dependencies; `src/` ships as-is, `dist/` for script tags. Only `src/index.js` is public API.
+- Physics depends only on math (no renderer). Bodies are linked to scene objects through `body.object`; planes are defined in the body frame so a static body can move or tilt them.
+- Fixed time step with accumulator and a sub-step cap (slow motion instead of a spiral of death).
+- Restitution combines with max, friction with sqrt(μ1·μ2). Contact normals always point from body A to body B.
+- Position correction uses pseudo velocities (split impulse) so it never adds momentum; warm starting caches impulses per body pair and nearby contact point, friction as a world vector on the higher-id body.
+- Sleeping bodies act as static (infinite mass) for awake neighbours; only a mover faster than `wakeSpeed` wakes them.
+- Rendering decisions unchanged (program per material type, fixed attribute locations, lights in view space, texture unit 0, loaders split into pure parsers and scene builders).
 
 ## Next Task
-Phase 9: bounding spheres + frustum culling (with tests and a browser check that culled objects do not draw), then measure draw-call and upload costs on a real device before changing anything else. After that: glTF (minimal, mesh + material + texture) built on the same loader conventions.
+Phase 9: bounding spheres + frustum culling with tests and a browser check; then measure rendering and physics on a real phone before optimizing anything. Physics follow-up with the best value: continuous collision detection for fast bodies, then capsule colliders.

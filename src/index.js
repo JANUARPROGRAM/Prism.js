@@ -45,5 +45,9 @@ export { TextureLoader } from './loaders/TextureLoader.js';
 export { OBJLoader } from './loaders/OBJLoader.js';
 export { MTLLoader, MaterialLibrary } from './loaders/MTLLoader.js';
 
+export { SphereShape, BoxShape, PlaneShape } from './physics/shapes.js';
+export { RigidBody } from './physics/RigidBody.js';
+export { PhysicsWorld } from './physics/PhysicsWorld.js';
+
 export { Renderer } from './renderer/Renderer.js';
 export { WebGLProgram } from './renderer/WebGLProgram.js';

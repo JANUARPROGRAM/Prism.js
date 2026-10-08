@@ -8,6 +8,8 @@ export class Camera extends Object3D {
 		/** World -> camera (view) matrix; refreshed by updateMatrixWorld(). */
 		this.matrixWorldInverse = new Matrix4();
 		this.projectionMatrix = new Matrix4();
+		/** Kept in sync by updateProjectionMatrix(); used by Vector3.unproject(). */
+		this.projectionMatrixInverse = new Matrix4();
 		this._inverseSource = new Float64Array(16).fill(NaN);
 	}
 
