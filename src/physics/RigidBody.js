@@ -37,9 +37,11 @@ export class RigidBody {
 	 * @param {Vector3} [options.angularVelocity] radians per second, world axes
 	 * @param {number} [options.restitution=0.3] 0 = no bounce, 1 = perfectly elastic
 	 * @param {number} [options.friction=0.5] Coulomb coefficient
+	 * @param {number} [options.rollingFriction=0] rolling resistance length; 0.01-0.05 lets balls come to rest
 	 * @param {number} [options.linearDamping=0.01] fraction of speed lost per second
 	 * @param {number} [options.angularDamping=0.01]
 	 * @param {number} [options.gravityScale=1]
+	 * @param {boolean} [options.ccd=false] sweep along the path when moving faster than its own size per step
 	 * @param {boolean} [options.allowSleep=true]
 	 * @param {number} [options.collisionGroup=1] bit(s) this body belongs to
 	 * @param {number} [options.collisionMask=0xffff] groups this body collides with
@@ -48,13 +50,13 @@ export class RigidBody {
 	constructor(options = {}) {
 		const {
 			shape, mass = 1, position, quaternion, velocity, angularVelocity,
-			restitution = 0.3, friction = 0.5, linearDamping = 0.01, angularDamping = 0.01,
-			gravityScale = 1, allowSleep = true, collisionGroup = 1, collisionMask = 0xffff, object = null, userData = {}
+			restitution = 0.3, friction = 0.5, rollingFriction = 0, linearDamping = 0.01, angularDamping = 0.01,
+			gravityScale = 1, ccd = false, allowSleep = true, collisionGroup = 1, collisionMask = 0xffff, object = null, userData = {}
 		} = options;
 		if (!shape || typeof shape.computeInertia !== 'function') {
 			throw new TypeError('Prism.js: RigidBody requires a `shape` (SphereShape, BoxShape or PlaneShape).');
 		}
-		for (const [name, value] of Object.entries({ restitution, friction, linearDamping, angularDamping })) {
+		for (const [name, value] of Object.entries({ restitution, friction, rollingFriction, linearDamping, angularDamping })) {
 			if (!(value >= 0) || !Number.isFinite(value)) {
 				throw new RangeError(`Prism.js: RigidBody ${name} must be a finite number >= 0, received ${String(value)}.`);
 			}
@@ -72,10 +74,15 @@ export class RigidBody {
 
 		this.restitution = restitution;
 		this.friction = friction;
+		/** Rolling resistance (a length, in the world's units): the largest resisting torque is rollingFriction x normal force. */
+		this.rollingFriction = rollingFriction;
 		this.linearDamping = linearDamping;
 		this.angularDamping = angularDamping;
 		this.gravityScale = gravityScale;
 		this.allowSleep = allowSleep;
+		/** Continuous collision detection: sweep this body along its path so it cannot tunnel through thin things. */
+		this.ccd = ccd;
+		this._ccdFraction = 1;
 		this.collisionGroup = collisionGroup;
 		this.collisionMask = collisionMask;
 		this.object = object;
@@ -83,6 +90,8 @@ export class RigidBody {
 
 		this.sleeping = false;
 		this.sleepTimer = 0;
+		this._moverTick = -1;
+		this._index = -1; // position in PhysicsWorld.bodies
 
 		// Derived state (see setMass / updateRotation)
 		this.mass = 0;
@@ -90,6 +99,7 @@ export class RigidBody {
 		this.invInertiaLocal = new Vector3();
 		this.invInertiaWorld = new Float64Array(9);
 		this.rotation = new Float64Array(9);
+		this._rotationKey = new Float64Array(4).fill(NaN);
 		// Pseudo velocities: position correction that must not become real momentum (split impulse)
 		this._pv = new Vector3();
 		this._pw = new Vector3();
@@ -118,13 +128,19 @@ export class RigidBody {
 		} else {
 			this.invInertiaLocal.set(0, 0, 0);
 		}
-		this.updateRotation();
+		this.updateRotation(true);
 		return this;
 	}
 
-	/** Recomputes the rotation matrix and the world-space inverse inertia tensor from `quaternion`. */
-	updateRotation() {
-		const R = rotationFromQuaternion(this.quaternion, this.rotation);
+	/**
+	 * Recomputes the rotation matrix and the world-space inverse inertia tensor from `quaternion`.
+	 * Skipped when the quaternion has not changed since the last call (pass `force` after changing mass).
+	 */
+	updateRotation(force = false) {
+		const q = this.quaternion, key = this._rotationKey;
+		if (!force && key[0] === q.x && key[1] === q.y && key[2] === q.z && key[3] === q.w) return;
+		key[0] = q.x; key[1] = q.y; key[2] = q.z; key[3] = q.w;
+		const R = rotationFromQuaternion(q, this.rotation);
 		const d = this.invInertiaLocal, I = this.invInertiaWorld;
 		for (let i = 0; i < 3; i++) {
 			for (let j = 0; j < 3; j++) {

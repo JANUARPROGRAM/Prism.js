@@ -168,6 +168,16 @@ export class Matrix4 {
 		return this;
 	}
 
+	/** Largest scale factor along any axis (length of the longest column of the 3x3 part). */
+	getMaxScaleOnAxis() {
+		const e = this.elements;
+		return Math.sqrt(Math.max(
+			e[0] * e[0] + e[1] * e[1] + e[2] * e[2],
+			e[4] * e[4] + e[5] * e[5] + e[6] * e[6],
+			e[8] * e[8] + e[9] * e[9] + e[10] * e[10]
+		));
+	}
+
 	/** Splits an affine TRS matrix. A negative determinant is folded into scale.x. */
 	decompose(position, quaternion, scale) {
 		const e = this.elements;

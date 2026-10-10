@@ -1,50 +1,46 @@
 # PROGRESS
 
 ## Completed
-- **Phase 0 – Foundation**: ESM package, dev server, build scripts, README (Indonesian), LICENSE, tests, examples.
-- **Phase 1 – Math**: Vector2/3/4 (`project` / `unproject`), Matrix3/4, Quaternion (slerp), Euler (6 orders), Color.
-- **Phase 2 – Scene graph**: Object3D (lazy matrix updates, Euler<->quaternion sync, lookAt), Group, Scene, Mesh, cameras (with `projectionMatrixInverse`).
-- **Phase 3 – Renderer**: `render(scene, camera)`, program / geometry / texture / state caches, sorted render list, resize, context-loss rebuild, `renderer.info`, disposal.
-- **Phase 4 – Geometry**, **Phase 5 – Materials** (Basic, Normal, Lambert, `map`), **Phase 6 – Lighting** (Ambient, Directional, Point), **Phase 7 – Textures**, **Phase 8 – Loaders** (OBJ + MTL + TextureLoader).
-- **Physics (new, v0.4.0)**: `PhysicsWorld`, `RigidBody`, `SphereShape` / `BoxShape` / `PlaneShape`. Fixed time step, sweep-and-prune, narrow phase for every shape pair (box-box = SAT over 15 axes + face clipping, edge-edge fallback), sequential-impulse solver with warm starting, restitution, Coulomb + torsional friction, split-impulse position correction, sleeping, collision groups/masks, kinematic platforms, forces / torques / impulses at a point, `raycast`, `onContact`, mesh sync via `body.object`.
-- Examples: 01 triangle, 02 game, 03 scene, 04 lighting, 05 obj, 06 physics, cdn.
-- Release packaging for jsDelivr: `dist/` committed; `assets/` (logo, preview, models).
-- Browser pixel checks (`tests/browser/`): 26 checks on a real WebGL2 context.
+- **Phases 0-8** (foundation, math, scene graph, renderer, geometry incl. `CapsuleGeometry`, materials, lighting, textures, OBJ + MTL loaders): see the README. All covered by unit tests and 30 pixel checks in a real WebGL2 context.
+- **Physics (v0.4.0 -> v0.5.0)**: rigid bodies; sphere / box / **capsule** / plane shapes; SAT box-box with face clipping; sequential impulses with warm starting, split-impulse position correction, Coulomb + torsional + **rolling** friction; sleeping; raycast; kinematic platforms; **joints** (`BallSocketJoint`, `HingeJoint` with motor, `DistanceJoint` rod / rope / stop); **CCD** (`ccd: true`).
+- **Optimization (v0.5.0)**: frustum culling (bounding spheres + `Frustum`), uniform caching, `InstancedMesh` (+ per-instance color), physics broad phase that only enumerates pairs involving awake bodies with a persistent sort order, mover list (settled world costs ~0), allocation-free box-box narrow phase and warm-start manifolds.
+- Examples 01-07 and `cdn`; benchmark script (`npm run benchmark`) and a browser benchmark page (`tests/browser/bench.html`).
+- Release packaging for jsDelivr: committed `dist/`, `assets/`, Indonesian README.
 
 ## In Progress
 - Nothing.
 
 ## Remaining
-- Phase 9 performance: bounding spheres + frustum culling, per-material uniform caching, instancing, measurements on real devices (rendering AND physics).
-- glTF/GLB loader (small, built on the same loader conventions).
-- Physics: joints/constraints, continuous collision detection, capsule/cylinder/convex/mesh colliders, compound shapes, trigger volumes, rolling resistance, allocation-free box-box narrow phase, islands for per-group sleeping.
-- Rendering: shadows, specular/PBR, environment maps, more than 4+4 lights, ShaderMaterial, WebGL1 fallback decision.
+- Measure on real devices (phones, GPUs): rendering and physics. A browser benchmark page exists; no device results have been collected yet.
+- glTF/GLB loader; shadows; specular/PBR; environment maps; `ShaderMaterial`; more than 4+4 lights; WebGL1 decision.
+- Physics: joint angle limits / springs / prismatic joints; compound, cylinder, convex and mesh colliders; trigger volumes; two-sided CCD (both bodies swept) and rotation-aware sweeps; soft bodies; islands for per-group sleeping; multithreading.
 - Picking against meshes (raycaster for scene objects), camera controls, animation system, npm publish (name availability unchecked).
 
 ## Known Bugs / Limitations
 - The global name `Prism` (and file names prism.js / prism.css) collide with the PrismJS highlighter on one page (README troubleshooting).
 - `dist/` must be rebuilt and committed before every tag; nothing automates it.
-- Physics: no joints, no CCD (fast thin bodies can tunnel), no gyroscopic term, no rolling resistance, planes only for static bodies, results not guaranteed identical across JS engines/devices, box-box narrow phase allocates temporary arrays.
-- Physics wake rule: a sleeping body only wakes when touched by something moving faster than `wakeSpeed` (0.25), so a very slow push is treated as resting against a static object.
-- Rendering limits as before: LambertMaterial black without lights; 4+4 lights; no frustum culling; OBJ concave polygons and specular/bump maps unsupported.
-- Raw gl code mixed with `render()` must call `renderer.state.reset()` when it changes depth/cull/blend/program/VAO.
+- Physics micro-optimizations (specialised helpers, allocation-free narrow phase, reused manifolds) gave **no measurable speed-up** for falling piles (solver-bound: 1000 bodies ~ 4.5 ms/step in the sandbox); they only removed garbage.
+- Joints: discretisation error is real (a fast chain can stretch by centimetres for a moment); no angle limits.
+- CCD sweeps one body against the others' start-of-step poses and ignores rotation; capsule-vs-box uses three support points, not a full manifold.
+- Render benchmark uses a stub GL: it measures JS cost and exact GL call counts, not GPU/driver time or instance-buffer upload cost.
+- Everything under "Verification status" that says UNVERIFIED.
 
 ## Verification status
-- VERIFIED (Node 22): full unit suite with a mock GL for rendering and direct numeric tests for physics (see the count printed by `npm test`).
-- VERIFIED physics numerics: free fall within 2% (semi-implicit Euler at 1/60 s), bounce height e²h (e=0.5 -> 0.757 vs 0.75, e=0.8 -> 2.00 vs 1.92), exact momentum conservation, energy within 1% at e=1, friction stopping distance v²/(2μg), slope hold / slide acceleration, rolling at (2/7)rω0, 3-box stack drift ≈ 0.001-0.002 m over 6 s, 20:1 mass ratio, 36-body pile settles and sleeps, no energy gain on impact, deterministic results, narrow-phase contact counts/normals/depths, ray casts.
-- VERIFIED physics benchmark in this sandbox only (Node/V8): 300 falling/stacking bodies ≈ 3.2 ms median per step, p95 ≈ 5.6 ms. NOT measured on phones or in browsers.
-- VERIFIED (headless Chromium 141, SwiftShader): tests/browser 26/26 pixel checks; examples 01-06 run without console errors; 06-physics spawn, rain, tap-to-shoot and reset work.
-- Bugs found and fixed while building the physics (kept here as a record): (1) Baumgarte position correction fed energy into real velocities (e=0 bodies popped up, inelastic collisions kept relative speed) -> replaced by split impulse; (2) warm-start impulses applied inside the preparation loop corrupted later contacts' pre-solve velocities and made 20-iteration stacks collapse -> warm start now runs after all contacts are prepared; (3) a spinning sphere never stopped spinning about the contact normal -> added torsional friction; (4) the example fed a negative first-frame dt (rAF timestamp earlier than performance.now()) -> clamped, and `step()` rejects negative dt; (5) several test expectations were wrong (restitution combines with max, contact point is midway in the gap) and were corrected only after checking the engine value against hand calculation.
-- UNVERIFIED: real jsDelivr URLs (repo not pushed, no network here), `npm install` from the registry, Firefox, Safari, Edge, Android Chrome, real GPU drivers, frame-time performance on any device, any comparison with other engines or physics libraries.
+- VERIFIED (Node 22): full unit suite (run `npm test`; the count is printed there). Physics: 76 numeric tests (49 world + 10 capsule + 5 CCD + 12 joints), including: free fall, bounce heights, momentum/energy, friction stopping distance, slopes, rolling to (2/7) r w0, rolling resistance a = mu_r g / (1.4 r), stacks, a pile that settles and sleeps, capsule inertia against numerical integration of its volume, pendulum period within 1%, joint energy behaviour (loss first order in dt), hinge motor limits, CCD vs tunnelling.
+- VERIFIED determinism: with sleeping off, the 120-body x 400-step checksum is bit-identical between v0.4.0 and now (d75e0e1a); with sleeping on, max position difference 3.03e-8 m (a body that wakes now gets contacts with sleeping neighbours in the same step). Default-behaviour checksum afc798f4 unchanged by all later optimizations.
+- VERIFIED (headless Chromium 141, SwiftShader): 30/30 pixel checks (including: culling changes zero pixels; InstancedMesh == separate meshes with Lambert, non-uniform scale and per-instance colors); examples 01-07 run with no console problems; the benchmark page runs; built `dist/prism.js` global exposes the new classes.
+- VERIFIED measurements (sandbox, Node/V8, best of 5): see README "Optimizacion dan kinerja" for the full before/after table. Highlights: settled pile 1.80 -> 0.58 ms, fully asleep 1.33 -> 0.010 ms, 1000 meshes with 10% visible: 4013 -> 316 GL calls and 0.67 -> 0.15 ms, 4000 meshes -> 1 InstancedMesh: 12013 -> 17 GL calls.
+- INCIDENT (recorded for honesty): while adding joints I overwrote an uncommitted `src/physics/joints.js` from earlier work whose copy existed nowhere else, and the world code ended up with duplicated joint integration. Recovery: the earlier 11 joint tests were treated as the specification, `PhysicsWorld.js` was cleaned back to one integration (old protocol: `isJoint`, `_prepare`, `_warmStart`, `_reset`, `_solve`), and `joints.js` was rewritten to that protocol; all 11 tests passed on the first run, then a 12th (whole sleeping chain wakes in one step) was added. Lesson: commit working states before editing.
+- UNVERIFIED: the real jsDelivr URLs (repo not pushed, no network here), `npm install` from the registry, Firefox, Safari, Edge, Android Chrome, real GPU drivers, any timing on a phone, any comparison with other engines or physics libraries.
 
 ## Architecture Decisions
 - ES modules only, zero runtime dependencies; `src/` ships as-is, `dist/` for script tags. Only `src/index.js` is public API.
-- Physics depends only on math (no renderer). Bodies are linked to scene objects through `body.object`; planes are defined in the body frame so a static body can move or tilt them.
-- Fixed time step with accumulator and a sub-step cap (slow motion instead of a spiral of death).
-- Restitution combines with max, friction with sqrt(μ1·μ2). Contact normals always point from body A to body B.
-- Position correction uses pseudo velocities (split impulse) so it never adds momentum; warm starting caches impulses per body pair and nearby contact point, friction as a world vector on the higher-id body.
-- Sleeping bodies act as static (infinite mass) for awake neighbours; only a mover faster than `wakeSpeed` wakes them.
+- Physics depends only on math. Bodies link to scene objects through `body.object`; planes live in the body frame.
+- Joint protocol between world and joint (internal): `isJoint`, `_prepare(dt, beta, maxBias)`, `_warmStart()`, `_reset()`, `_solve(pseudo)`, `_error`. Joints attached to "the world" use a hidden immovable body.
+- Position correction (contacts AND joints) uses pseudo velocities so it never adds energy; warm starting caches impulses per body pair (contacts) or per joint.
+- Broad phase keeps its sorted array between steps with creation order as the tie-break, so contact order (and therefore results) does not depend on history.
+- Culling is conservative (bounding sphere vs 6 planes); instancing compiles its own program variants (defines), keeps instance data in its own buffers/VAO, and does not cull per instance.
 - Rendering decisions unchanged (program per material type, fixed attribute locations, lights in view space, texture unit 0, loaders split into pure parsers and scene builders).
 
 ## Next Task
-Phase 9: bounding spheres + frustum culling with tests and a browser check; then measure rendering and physics on a real phone before optimizing anything. Physics follow-up with the best value: continuous collision detection for fast bodies, then capsule colliders.
+Collect real-device numbers with `tests/browser/bench.html` and use them to decide what to optimize next. Candidate features with the best value: glTF loader, joint angle limits, and a rotation-aware / two-sided CCD.

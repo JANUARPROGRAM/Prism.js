@@ -8,6 +8,8 @@ export class Mesh extends Object3D {
 		super();
 		this.geometry = geometry;
 		this.material = material;
+		/** Skip drawing when the geometry's bounding sphere is outside the camera's view. Set false for vertex-shader displacement. */
+		this.frustumCulled = true;
 	}
 }
 Mesh.prototype.isMesh = true;

@@ -40,6 +40,20 @@ export class BufferGeometry {
 		return this;
 	}
 
+	/**
+	 * A sphere that contains every vertex ({ center: Vector3, radius }), or null without positions.
+	 * Computed on first use and again whenever the position attribute is replaced or its `version` changes.
+	 */
+	get boundingSphere() {
+		const position = this.attributes.position;
+		if (!position) return null;
+		let sphere = this._boundingSphere;
+		if (sphere === undefined || sphere.source !== position || sphere.version !== position.version) {
+			sphere = this._boundingSphere = computeBoundingSphere(position);
+		}
+		return sphere;
+	}
+
 	/** Number of vertices (from the position attribute). */
 	get vertexCount() {
 		const position = this.attributes.position;
@@ -102,3 +116,24 @@ export class BufferGeometry {
 	}
 }
 BufferGeometry.prototype.isBufferGeometry = true;
+
+/** Center of the axis-aligned box and the distance to the farthest vertex: simple, cheap and never too small. */
+function computeBoundingSphere(position) {
+	const a = position.array, n = position.itemSize;
+	const min = [Infinity, Infinity, Infinity], max = [-Infinity, -Infinity, -Infinity];
+	for (let i = 0; i < a.length; i += n) {
+		for (let k = 0; k < 3; k++) {
+			const v = a[i + k];
+			if (v < min[k]) min[k] = v;
+			if (v > max[k]) max[k] = v;
+		}
+	}
+	const cx = (min[0] + max[0]) / 2, cy = (min[1] + max[1]) / 2, cz = (min[2] + max[2]) / 2;
+	let r2 = 0;
+	for (let i = 0; i < a.length; i += n) {
+		const dx = a[i] - cx, dy = a[i + 1] - cy, dz = a[i + 2] - cz;
+		const d = dx * dx + dy * dy + dz * dz;
+		if (d > r2) r2 = d;
+	}
+	return { center: { x: cx, y: cy, z: cz }, radius: Math.sqrt(r2), source: position, version: position.version };
+}

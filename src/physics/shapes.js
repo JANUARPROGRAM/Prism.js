@@ -1,9 +1,10 @@
 import { Vector3 } from '../math/Vector3.js';
 
-/** Dispatch order used by the narrow phase: planes first, then boxes, then spheres. */
+/** Dispatch order used by the narrow phase: planes, boxes, capsules, spheres. */
 export const KIND_PLANE = 0;
 export const KIND_BOX = 1;
-export const KIND_SPHERE = 2;
+export const KIND_CAPSULE = 2;
+export const KIND_SPHERE = 3;
 
 function assertPositive(name, value) {
 	if (!(value > 0) || !Number.isFinite(value)) {
@@ -22,6 +23,8 @@ export class SphereShape {
 	computeInertia(mass, out) {
 		return out.setScalar(0.4 * mass * this.radius * this.radius);
 	}
+	/** Smallest half-thickness, used to decide whether a body is fast enough to need continuous collision. */
+	get minExtent() { return this.radius; }
 }
 
 /** A solid box centered on the body's position; sizes are FULL lengths (like BoxGeometry). */
@@ -40,6 +43,34 @@ export class BoxShape {
 		const k = mass / 12;
 		return out.set(k * (h * h + d * d), k * (w * w + d * d), k * (w * w + h * h));
 	}
+	get minExtent() { return Math.min(this.halfExtents.x, this.halfExtents.y, this.halfExtents.z); }
+}
+
+/**
+ * A cylinder of length `height` capped by two hemispheres of `radius`, standing along the body's
+ * local Y axis (total length = height + 2 radius). The body position is the center.
+ */
+export class CapsuleShape {
+	constructor(radius = 0.5, height = 1) {
+		assertPositive('CapsuleShape radius', radius);
+		if (!(height >= 0) || !Number.isFinite(height)) {
+			throw new RangeError(`Prism.js: CapsuleShape height must be a finite number >= 0, received ${String(height)}.`);
+		}
+		this.radius = radius;
+		this.height = height;
+		this.halfHeight = height / 2;
+		this.kind = KIND_CAPSULE;
+	}
+	/** Solid cylinder + two hemispheres (parallel-axis theorem for the caps). Axis is local Y. */
+	computeInertia(mass, out) {
+		const r = this.radius, h = this.height;
+		const cylinder = Math.PI * r * r * h, sphere = (4 / 3) * Math.PI * r ** 3;
+		const mc = mass * cylinder / (cylinder + sphere), ms = mass - mc;
+		const axial = mc * r * r / 2 + ms * 0.4 * r * r;
+		const lateral = mc * (r * r / 4 + h * h / 12) + ms * (0.4 * r * r + h * h / 4 + 3 * h * r / 8);
+		return out.set(lateral, axial, lateral);
+	}
+	get minExtent() { return this.radius; }
 }
 
 /**

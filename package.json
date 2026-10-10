@@ -1,6 +1,6 @@
 {
   "name": "prism.js",
-  "version": "0.4.0",
+  "version": "0.5.0",
   "description": "A lightweight JavaScript 3D rendering engine built from scratch on top of WebGL/WebGL2.",
   "keywords": [
     "3d",
@@ -38,7 +38,8 @@
     "prepublishOnly": "npm run build && npm test",
     "build:js": "esbuild src/index.js --bundle --format=iife --global-name=Prism --sourcemap --outfile=dist/prism.js && esbuild src/index.js --bundle --format=iife --global-name=Prism --minify --sourcemap --outfile=dist/prism.min.js && esbuild src/index.js --bundle --format=esm --minify --sourcemap --outfile=dist/prism.module.js",
     "build:css": "esbuild src/prism.css --outfile=dist/prism.css && esbuild src/prism.css --minify --outfile=dist/prism.min.css",
-    "assets": "node scripts/make-sample-assets.js"
+    "assets": "node scripts/make-sample-assets.js",
+    "benchmark": "node scripts/benchmark.js"
   },
   "devDependencies": {
     "esbuild": "^0.27.7"

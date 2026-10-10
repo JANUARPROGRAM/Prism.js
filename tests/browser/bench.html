@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+	<meta charset="utf-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1">
+	<link rel="icon" href="data:,">
+	<title>Prism.js – benchmark di perangkatmu</title>
+	<style>
+		body { font: 15px/1.5 system-ui, sans-serif; max-width: 44rem; margin: 1rem auto; padding: 0 1rem; }
+		button { font: inherit; padding: 0.5rem 1rem; margin-right: 0.5rem; }
+		table { border-collapse: collapse; width: 100%; margin: 1rem 0; font-variant-numeric: tabular-nums; }
+		td, th { border-bottom: 1px solid #8884; padding: 0.3rem 0.4rem; text-align: left; }
+		td:last-child, th:last-child { text-align: right; }
+		#status { color: #888; min-height: 1.5em; }
+		textarea { width: 100%; height: 9rem; font: 12px/1.4 ui-monospace, monospace; }
+		canvas { width: 160px; height: 120px; border: 1px solid #8884; }
+	</style>
+</head>
+<body>
+	<h1>Benchmark Prism.js</h1>
+	<p>Mengukur fisika dan biaya JavaScript penggambaran <b>di perangkat ini</b>. Tutup tab lain dan biarkan layar menyala selama pengukuran (sekitar 20–60 detik).</p>
+	<p><button id="run">Mulai</button><button id="quick">Cepat</button></p>
+	<div id="status"></div>
+	<canvas id="canvas" width="320" height="240"></canvas>
+	<table id="table"><thead><tr><th>Skenario</th><th>Hasil</th></tr></thead><tbody></tbody></table>
+	<p>Salin hasil ini dan kirimkan bila ingin membandingkan perangkat:</p>
+	<textarea id="out" readonly></textarea>
+	<script type="module" src="./bench.js"></script>
+</body>
+</html>

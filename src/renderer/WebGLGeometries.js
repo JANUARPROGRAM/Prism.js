@@ -51,7 +51,10 @@ export class WebGLGeometries {
 		this.state = state;
 		this.info = info;
 		this._records = new Map();
+		this._instanced = new Map();
+		this._ids = new WeakMap();
 		this._onGeometryDispose = (geometry) => this.release(geometry);
+		this._onInstancedDispose = (mesh) => this.releaseInstanced(mesh);
 	}
 
 	/** Returns the up-to-date GPU record for `geometry`, uploading what changed. */
@@ -178,6 +181,85 @@ export class WebGLGeometries {
 		record.wire = null;
 	}
 
+	/**
+	 * GPU state for an InstancedMesh: a VAO that combines the geometry's buffers with the per-instance
+	 * matrix (locations 4-7) and optional color (location 8) buffers. Instance data is uploaded again
+	 * only when its `version` changes; the VAO is rebuilt only when the geometry's buffers were replaced
+	 * or the instance color appeared/disappeared.
+	 */
+	getInstanced(mesh, record) {
+		const gl = this.gl;
+		let r = this._instanced.get(mesh);
+		if (r === undefined) {
+			r = { vao: gl.createVertexArray(), matrixBuffer: gl.createBuffer(), colorBuffer: null, matrixVersion: -1, colorVersion: -1, signature: '' };
+			this._instanced.set(mesh, r);
+			mesh.addDisposeListener(this._onInstancedDispose);
+		}
+		const colors = mesh.instanceColor;
+		if (colors !== null && r.colorBuffer === null) r.colorBuffer = gl.createBuffer();
+
+		// upload instance data
+		const matrices = mesh.instanceMatrix;
+		gl.bindBuffer(gl.ARRAY_BUFFER, r.matrixBuffer);
+		if (r.matrixVersion === -1) gl.bufferData(gl.ARRAY_BUFFER, matrices.array, gl.DYNAMIC_DRAW);
+		else if (r.matrixVersion !== matrices.version) gl.bufferSubData(gl.ARRAY_BUFFER, 0, matrices.array);
+		r.matrixVersion = matrices.version;
+		if (colors !== null) {
+			gl.bindBuffer(gl.ARRAY_BUFFER, r.colorBuffer);
+			if (r.colorVersion === -1) gl.bufferData(gl.ARRAY_BUFFER, colors.array, gl.DYNAMIC_DRAW);
+			else if (r.colorVersion !== colors.version) gl.bufferSubData(gl.ARRAY_BUFFER, 0, colors.array);
+			r.colorVersion = colors.version;
+		}
+
+		// (re)build the VAO when what it points at changed
+		let signature = colors !== null ? 'c' : 'n';
+		for (const entry of record.buffers.values()) signature += `|${this._bufferId(entry.buffer)}`;
+		signature += `|i${record.indexBuffer === null ? 0 : this._bufferId(record.indexBuffer)}`;
+		if (signature !== r.signature) {
+			this.state.bindVertexArray(r.vao);
+			for (const [name, entry] of record.buffers) {
+				gl.bindBuffer(gl.ARRAY_BUFFER, entry.buffer);
+				this._pointAt(ATTRIBUTE_LOCATIONS[name], entry.attribute);
+			}
+			if (record.indexBuffer !== null) gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, record.indexBuffer);
+			gl.bindBuffer(gl.ARRAY_BUFFER, r.matrixBuffer);
+			for (let i = 0; i < 4; i++) {
+				gl.enableVertexAttribArray(4 + i);
+				gl.vertexAttribPointer(4 + i, 4, gl.FLOAT, false, 64, i * 16);
+				gl.vertexAttribDivisor(4 + i, 1);
+			}
+			if (colors !== null) {
+				gl.bindBuffer(gl.ARRAY_BUFFER, r.colorBuffer);
+				gl.enableVertexAttribArray(8);
+				gl.vertexAttribPointer(8, 3, gl.FLOAT, false, 12, 0);
+				gl.vertexAttribDivisor(8, 1);
+			} else {
+				gl.disableVertexAttribArray(8);
+			}
+			r.signature = signature;
+		}
+		return r;
+	}
+
+	/** Small integer identity for GL buffer objects, used to notice when a geometry's buffers were replaced. */
+	_bufferId(buffer) {
+		let id = this._ids.get(buffer);
+		if (id === undefined) { id = this._ids.size + 1; this._ids.set(buffer, id); }
+		return id;
+	}
+
+	releaseInstanced(mesh) {
+		const r = this._instanced.get(mesh);
+		if (r === undefined) return;
+		const gl = this.gl;
+		gl.deleteBuffer(r.matrixBuffer);
+		if (r.colorBuffer !== null) gl.deleteBuffer(r.colorBuffer);
+		gl.deleteVertexArray(r.vao);
+		mesh.removeDisposeListener(this._onInstancedDispose);
+		this._instanced.delete(mesh);
+		this.state.resetBindings();
+	}
+
 	/** Frees the GPU copy of one geometry (it is re-uploaded if drawn again). */
 	release(geometry) {
 		const record = this._records.get(geometry);
@@ -189,6 +271,7 @@ export class WebGLGeometries {
 		gl.deleteVertexArray(record.vao);
 		geometry.removeDisposeListener(this._onGeometryDispose);
 		this._records.delete(geometry);
+		for (const r of this._instanced.values()) r.signature = ''; // their VAOs referenced buffers that no longer exist
 		this.info.memory.geometries = this._records.size;
 		// The VAO we just deleted may still be cached as bound.
 		this.state.resetBindings();
@@ -197,10 +280,12 @@ export class WebGLGeometries {
 	/** Forgets all records without deleting GL objects (they died with a lost context). */
 	clear() {
 		this._records.clear();
+		this._instanced.clear();
 		this.info.memory.geometries = 0;
 	}
 
 	dispose() {
+		for (const mesh of [...this._instanced.keys()]) this.releaseInstanced(mesh);
 		for (const geometry of [...this._records.keys()]) this.release(geometry);
 	}
 }

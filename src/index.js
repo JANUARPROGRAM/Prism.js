@@ -15,11 +15,13 @@ export { Matrix4 } from './math/Matrix4.js';
 export { Quaternion } from './math/Quaternion.js';
 export { Euler } from './math/Euler.js';
 export { Color } from './math/Color.js';
+export { Frustum } from './math/Frustum.js';
 
 export { Object3D } from './core/Object3D.js';
 export { Scene } from './core/Scene.js';
 export { Group } from './core/Group.js';
 export { Mesh } from './core/Mesh.js';
+export { InstancedMesh } from './core/InstancedMesh.js';
 export { Camera } from './core/Camera.js';
 export { PerspectiveCamera } from './core/PerspectiveCamera.js';
 export { OrthographicCamera } from './core/OrthographicCamera.js';
@@ -29,6 +31,7 @@ export { BufferGeometry } from './geometry/BufferGeometry.js';
 export { BoxGeometry } from './geometry/BoxGeometry.js';
 export { PlaneGeometry } from './geometry/PlaneGeometry.js';
 export { SphereGeometry } from './geometry/SphereGeometry.js';
+export { CapsuleGeometry } from './geometry/CapsuleGeometry.js';
 
 export { Light } from './lights/Light.js';
 export { AmbientLight } from './lights/AmbientLight.js';
@@ -45,9 +48,10 @@ export { TextureLoader } from './loaders/TextureLoader.js';
 export { OBJLoader } from './loaders/OBJLoader.js';
 export { MTLLoader, MaterialLibrary } from './loaders/MTLLoader.js';
 
-export { SphereShape, BoxShape, PlaneShape } from './physics/shapes.js';
+export { SphereShape, BoxShape, CapsuleShape, PlaneShape } from './physics/shapes.js';
 export { RigidBody } from './physics/RigidBody.js';
 export { PhysicsWorld } from './physics/PhysicsWorld.js';
+export { BallSocketJoint, HingeJoint, DistanceJoint } from './physics/joints.js';
 
 export { Renderer } from './renderer/Renderer.js';
 export { WebGLProgram } from './renderer/WebGLProgram.js';

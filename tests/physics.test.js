@@ -637,3 +637,33 @@ test('raycast box faces and normals; a ray starting inside does not hit', () => 
 	assert.equal(raycastBody(b, 5, 3, 0, -1, 0, 0, Infinity, out), -1, 'passes beside the box');
 	assert.equal(raycastBody(b, 5, 0, 0, 1, 0, 0, Infinity, out), -1, 'pointing away');
 });
+
+// ---------------------------------------------------------------- rolling resistance
+
+test('rolling resistance decelerates a rolling ball by a = μr·g / ((1 + 2/5)·r)', () => {
+	const r = 0.5, mur = 0.02;
+	const b = sphere(V(0, r, 0), { radius: r, velocity: V(2, 0, 0), angularVelocity: V(0, 0, -4), rollingFriction: mur, friction: 0.8, restitution: 0, linearDamping: 0, angularDamping: 0 });
+	const w = world([ground(), b], { allowSleep: false });
+	run(w, 3);
+	const a = mur * G / (1.4 * r);
+	close(b.velocity.x, 2 - a * 3, 0.12);                  // 1.16 m/s
+	close(b.angularVelocity.z, -b.velocity.x / r, 0.25);   // still rolling without slipping
+});
+
+test('without rolling resistance a ball rolls on; with it, it stops and the body can sleep', () => {
+	const roll = (mur) => {
+		const b = sphere(V(0, 0.5, 0), { velocity: V(1, 0, 0), angularVelocity: V(0, 0, -2), rollingFriction: mur, friction: 0.8, restitution: 0, linearDamping: 0, angularDamping: 0 });
+		const w = world([ground(), b]);
+		run(w, 8);
+		return b;
+	};
+	assert.ok(roll(0).velocity.x > 0.95, 'frictionless rolling keeps its speed');
+	const stopped = roll(0.05);
+	assert.ok(Math.abs(stopped.velocity.x) < 0.02);
+	assert.equal(stopped.sleeping, true);
+});
+
+test('rolling friction is validated and combines with max()', () => {
+	assert.throws(() => sphere(V(), { rollingFriction: -1 }), /rollingFriction/);
+	assert.equal(sphere(V(), { rollingFriction: 0.03 }).rollingFriction, 0.03);
+});

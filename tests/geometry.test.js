@@ -168,3 +168,25 @@ test('dispose notifies listeners until they are removed', () => {
 	g.dispose();
 	assert.equal(calls, 1);
 });
+
+test('CapsuleGeometry: every vertex is exactly `radius` from the axis segment, normals point away from it, winding is outward', async () => {
+	const { CapsuleGeometry } = await import('../src/index.js');
+	const radius = 0.4, length = 1.2, g = new CapsuleGeometry(radius, length, 6, 16);
+	assertWellFormed(g);
+	const p = g.attributes.position.array;
+	for (let i = 0; i < g.attributes.position.count; i++) {
+		const x = p[i * 3], y = p[i * 3 + 1], z = p[i * 3 + 2];
+		const cy = Math.max(-length / 2, Math.min(length / 2, y));
+		close(Math.hypot(x, y - cy, z), radius, 1e-6);
+		const n = normalAt(g, i);
+		close(n[0] * x + n[1] * (y - cy) + n[2] * z, radius, 1e-6);  // normal == (point - closest axis point) / radius
+	}
+	// the poles are at +-(length / 2 + radius)
+	close(p[1], length / 2 + radius, 1e-6);
+	close(p[(g.attributes.position.count - 1) * 3 + 1], -(length / 2 + radius), 1e-6);
+	// every triangle's geometric normal agrees with the stored (outward) vertex normal
+	eachTriangle(g, (a, b, c, [ia]) => assert.ok(dot(cross(sub(b, a), sub(c, a)), normalAt(g, ia)) > 0, 'triangle winds outward'));
+	assert.equal(new CapsuleGeometry(0.5, 0).attributes.position.count > 0, true, 'zero length is a sphere');
+	assert.throws(() => new CapsuleGeometry(0, 1), /radius/);
+	assert.throws(() => new CapsuleGeometry(1, -1), /length/);
+});

@@ -27,10 +27,16 @@ export class WebGLPrograms {
 		this._entries = new Map();
 	}
 
-	get(material) {
+	/** @param {{ instanced?: boolean, instanceColor?: boolean }} [flags] set for InstancedMesh draws */
+	get(material, flags = {}) {
 		const definition = SHADER_LIBRARY[material.type];
 		const useMap = definition !== undefined && definition.supportsMap === true && Boolean(material.map);
-		const key = useMap ? `${material.type}:map` : material.type;
+		const instanced = flags.instanced === true, instanceColor = instanced && flags.instanceColor === true;
+		if (definition !== undefined) {
+			if (instanced && !definition.supportsInstancing) throw new Error(`Prism.js: ${material.type} cannot be used with an InstancedMesh.`);
+			if (instanceColor && !definition.supportsInstanceColor) throw new Error(`Prism.js: ${material.type} does not support per-instance colors; use BasicMaterial or LambertMaterial.`);
+		}
+		const key = material.type + (useMap ? ':map' : '') + (instanced ? ':inst' : '') + (instanceColor ? ':icol' : '');
 		let entry = this._entries.get(key);
 		if (entry === undefined) {
 			if (definition === undefined) {
@@ -39,7 +45,10 @@ export class WebGLPrograms {
 						`Built-in material types: ${Object.keys(SHADER_LIBRARY).join(', ')}.`
 				);
 			}
-			const defines = useMap ? ['USE_MAP'] : [];
+			const defines = [];
+			if (useMap) defines.push('USE_MAP');
+			if (instanced) defines.push('USE_INSTANCING');
+			if (instanceColor) defines.push('USE_INSTANCE_COLOR');
 			const program = new WebGLProgram(this.gl, {
 				name: key,
 				vertexShader: withDefines(definition.vertexShader, defines),
@@ -47,7 +56,7 @@ export class WebGLPrograms {
 			});
 			const locations = Object.create(null);
 			for (const name of definition.uniforms) locations[name] = program.getUniformLocation(name);
-			entry = { program, definition, locations, frame: -1, lightsFrame: -1 };
+			entry = { program, definition, locations, frame: -1, lightsFrame: -1, cache: {}, samplerSet: false };
 			this._entries.set(key, entry);
 			this.info.memory.programs = this._entries.size;
 		}

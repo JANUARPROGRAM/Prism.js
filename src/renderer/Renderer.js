@@ -1,5 +1,7 @@
 import { Color } from '../math/Color.js';
 import { Matrix3 } from '../math/Matrix3.js';
+import { Matrix4 } from '../math/Matrix4.js';
+import { Frustum } from '../math/Frustum.js';
 import { WebGLState } from './WebGLState.js';
 import { WebGLPrograms } from './WebGLPrograms.js';
 import { WebGLGeometries } from './WebGLGeometries.js';
@@ -79,7 +81,7 @@ export class Renderer {
 
 		/** Counters for debugging and profiling; `render` values describe the last render() call. */
 		this.info = {
-			render: { frame: 0, calls: 0, triangles: 0, lines: 0, lights: 0 },
+			render: { frame: 0, calls: 0, triangles: 0, lines: 0, lights: 0, culled: 0, instances: 0 },
 			memory: { geometries: 0, programs: 0, textures: 0 }
 		};
 
@@ -106,6 +108,8 @@ export class Renderer {
 		// Scratch objects reused every frame (no per-frame allocation).
 		this._colorScratch = new Color();
 		this._normalMatrix = new Matrix3();
+		this._viewProjection = new Matrix4();
+		this._frustum = new Frustum();
 		this._projectionArray = new Float32Array(16);
 		this._modelViewArray = new Float32Array(16);
 		this._normalArray = new Float32Array(9);
@@ -245,10 +249,14 @@ export class Renderer {
 		stats.calls = 0;
 		stats.triangles = 0;
 		stats.lines = 0;
+		stats.culled = 0;
+		stats.instances = 0;
 
 		scene.updateMatrixWorld();
 		if (camera.parent === null) camera.updateMatrixWorld();
 
+		this._viewProjection.multiplyMatrices(camera.projectionMatrix, camera.matrixWorldInverse);
+		this._frustum.setFromProjectionMatrix(this._viewProjection);
 		this.state.resetBindings();
 		this._textures.resetBindings();
 		this._list.reset();
@@ -293,7 +301,11 @@ export class Renderer {
 			if (!material || !material.isMaterial) {
 				throw new TypeError(`Prism.js: Mesh "${object.name || object.id}" has no valid material.`);
 			}
-			if (material.visible) {
+			if (!material.visible) {
+				// not drawn
+			} else if (object.frustumCulled && !this._inFrustum(object)) {
+				this.info.render.culled++;
+			} else {
 				const item = this._list.push(object, object.geometry, material);
 				item.modelView.multiplyMatrices(camera.matrixWorldInverse, object.matrixWorld);
 				item.depth = -item.modelView.elements[14];
@@ -303,19 +315,33 @@ export class Renderer {
 		for (let i = 0; i < children.length; i++) this._collect(children[i], camera);
 	}
 
+	/** Conservative visibility test of a mesh's world-space bounding sphere against the camera frustum. */
+	_inFrustum(mesh) {
+		const sphere = mesh.geometry.boundingSphere;
+		if (sphere === null) return true; // nothing to measure: let the draw path report the problem
+		const e = mesh.matrixWorld.elements, c = sphere.center;
+		return this._frustum.intersectsSphere(
+			e[0] * c.x + e[4] * c.y + e[8] * c.z + e[12],
+			e[1] * c.x + e[5] * c.y + e[9] * c.z + e[13],
+			e[2] * c.x + e[6] * c.y + e[10] * c.z + e[14],
+			sphere.radius * mesh.matrixWorld.getMaxScaleOnAxis()
+		);
+	}
+
 	_drawItems(items) {
 		const gl = this.gl, state = this.state, stats = this.info.render;
 		const frame = stats.frame;
 
 		for (let i = 0; i < items.length; i++) {
-			const { geometry, material, modelView } = items[i];
+			const { geometry, material, modelView, mesh } = items[i];
+			const instanced = mesh.isInstancedMesh === true;
 
 			state.setDepthTest(material.depthTest);
 			state.setDepthMask(material.depthWrite);
 			state.setSide(material.side);
 			state.setBlending(material.transparent || material.opacity < 1);
 
-			const entry = this._programs.get(material);
+			const entry = this._programs.get(material, instanced ? { instanced: true, instanceColor: mesh.instanceColor !== null } : undefined);
 			const locations = entry.locations;
 			state.useProgram(entry.program.program);
 
@@ -335,12 +361,12 @@ export class Renderer {
 			}
 			this._modelViewArray.set(modelView.elements);
 			gl.uniformMatrix4fv(locations.uModelViewMatrix, false, this._modelViewArray);
-			if (entry.definition.usesNormalMatrix) {
+			if (entry.definition.usesNormalMatrix && !instanced) { // instanced draws derive it per instance in the shader
 				this._normalMatrix.getNormalMatrix(modelView);
 				this._normalArray.set(this._normalMatrix.elements);
 				gl.uniformMatrix3fv(locations.uNormalMatrix, false, this._normalArray);
 			}
-			entry.definition.uploadMaterial(gl, locations, material);
+			entry.definition.uploadMaterial(gl, locations, material, entry.cache);
 			if (material.map && entry.definition.supportsMap) {
 				if (geometry.attributes.uv === undefined) {
 					throw new Error(
@@ -348,10 +374,29 @@ export class Renderer {
 					);
 				}
 				this._textures.bind(material.map);
-				gl.uniform1i(locations.uMap, 0);
+				if (!entry.samplerSet) { gl.uniform1i(locations.uMap, 0); entry.samplerSet = true; } // always unit 0
 			}
 
 			const record = this._geometries.get(geometry);
+			if (instanced) {
+				if (material.wireframe) throw new Error('Prism.js: InstancedMesh does not support wireframe materials.');
+				const count = mesh.count;
+				if (!Number.isInteger(count) || count < 0 || count > mesh.capacity) {
+					throw new RangeError(`Prism.js: InstancedMesh.count must be an integer between 0 and its capacity (${mesh.capacity}), received ${String(count)}.`);
+				}
+				if (count === 0) continue;
+				state.bindVertexArray(this._geometries.getInstanced(mesh, record).vao);
+				if (record.indexBuffer !== null) {
+					gl.drawElementsInstanced(gl.TRIANGLES, record.indexCount, record.indexType, 0, count);
+					stats.triangles += (record.indexCount / 3) * count;
+				} else {
+					gl.drawArraysInstanced(gl.TRIANGLES, 0, geometry.vertexCount, count);
+					stats.triangles += (geometry.vertexCount / 3) * count;
+				}
+				stats.instances += count;
+				stats.calls++;
+				continue;
+			}
 			if (material.wireframe) {
 				const wire = this._geometries.getWireframe(record, geometry);
 				state.bindVertexArray(wire.vao);
