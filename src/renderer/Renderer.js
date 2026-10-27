@@ -10,7 +10,7 @@ import { WebGLTextures } from './WebGLTextures.js';
 function createCanvas() {
 	if (typeof document === 'undefined') {
 		throw new Error(
-			'Prism.js: No `canvas` option was given and `document` is not available to create one.'
+			'Vertex: No `canvas` option was given and `document` is not available to create one.'
 		);
 	}
 	return document.createElement('canvas');
@@ -18,7 +18,7 @@ function createCanvas() {
 
 function assertPositive(name, value) {
 	if (!Number.isFinite(value) || value <= 0) {
-		throw new RangeError(`Prism.js: ${name} must be a positive finite number, received ${String(value)}.`);
+		throw new RangeError(`Vertex: ${name} must be a positive finite number, received ${String(value)}.`);
 	}
 }
 
@@ -55,7 +55,7 @@ export class Renderer {
 		} = options;
 
 		if (canvas === null || typeof canvas !== 'object' || typeof canvas.getContext !== 'function') {
-			throw new TypeError('Prism.js: The `canvas` option must be an HTMLCanvasElement.');
+			throw new TypeError('Vertex: The `canvas` option must be an HTMLCanvasElement.');
 		}
 		assertPositive('pixelRatio', pixelRatio);
 
@@ -115,7 +115,7 @@ export class Renderer {
 			event.preventDefault();
 			this.contextLost = true;
 			console.warn(
-				'Prism.js: WebGL context lost. Engine-managed GPU resources are rebuilt automatically ' +
+				'Vertex: WebGL context lost. Engine-managed GPU resources are rebuilt automatically ' +
 					'on restore; resources you created with raw gl calls must be recreated by you.'
 			);
 		};
@@ -127,7 +127,7 @@ export class Renderer {
 			this._textures.clear();
 			this.state.reset();
 			this._applyState();
-			console.info('Prism.js: WebGL context restored.');
+			console.info('Vertex: WebGL context restored.');
 		};
 		canvas.addEventListener('webglcontextlost', this._onContextLost, false);
 		canvas.addEventListener('webglcontextrestored', this._onContextRestored, false);
@@ -198,7 +198,7 @@ export class Renderer {
 		this._assertAlive();
 		this._colorScratch.set(color);
 		if (!(alpha >= 0 && alpha <= 1)) {
-			throw new RangeError(`Prism.js: Clear alpha must be between 0 and 1, received ${String(alpha)}.`);
+			throw new RangeError(`Vertex: Clear alpha must be between 0 and 1, received ${String(alpha)}.`);
 		}
 		const c = this._clearColor;
 		c[0] = this._colorScratch.r;
@@ -232,10 +232,10 @@ export class Renderer {
 	render(scene, camera) {
 		this._assertAlive();
 		if (!scene || !scene.isScene) {
-			throw new TypeError('Prism.js: Renderer.render(scene, camera) expects a Scene as its first argument.');
+			throw new TypeError('Vertex: Renderer.render(scene, camera) expects a Scene as its first argument.');
 		}
 		if (!camera || !camera.isCamera) {
-			throw new TypeError('Prism.js: Renderer.render(scene, camera) expects a Camera as its second argument.');
+			throw new TypeError('Vertex: Renderer.render(scene, camera) expects a Camera as its second argument.');
 		}
 		if (this.contextLost) return;
 
@@ -291,7 +291,7 @@ export class Renderer {
 		if (object.isMesh) {
 			const material = object.material;
 			if (!material || !material.isMaterial) {
-				throw new TypeError(`Prism.js: Mesh "${object.name || object.id}" has no valid material.`);
+				throw new TypeError(`Vertex: Mesh "${object.name || object.id}" has no valid material.`);
 			}
 			if (material.visible) {
 				const item = this._list.push(object, object.geometry, material);
@@ -329,7 +329,7 @@ export class Renderer {
 			}
 			if (entry.definition.requiresNormals && geometry.attributes.normal === undefined) {
 				throw new Error(
-					`Prism.js: ${material.type} needs a "normal" attribute but the geometry has none.\n\n` +
+					`Vertex: ${material.type} needs a "normal" attribute but the geometry has none.\n\n` +
 						'Call geometry.computeVertexNormals() or use a built-in geometry.'
 				);
 			}
@@ -344,7 +344,7 @@ export class Renderer {
 			if (material.map && entry.definition.supportsMap) {
 				if (geometry.attributes.uv === undefined) {
 					throw new Error(
-						`Prism.js: ${material.type} has a texture map but the geometry has no "uv" attribute.`
+						`Vertex: ${material.type} has a texture map but the geometry has no "uv" attribute.`
 					);
 				}
 				this._textures.bind(material.map);
@@ -383,7 +383,7 @@ export class Renderer {
 
 		if (gl === null) {
 			throw new Error(
-				'Prism.js: Failed to create a WebGL2 context.\n\n' +
+				'Vertex: Failed to create a WebGL2 context.\n\n' +
 					'Possible causes: the browser or device does not support WebGL2, hardware ' +
 					'acceleration is disabled, or the canvas already has a different context type ' +
 					'(for example "2d").' +
@@ -415,7 +415,7 @@ export class Renderer {
 
 	_assertAlive() {
 		if (this._disposed) {
-			throw new Error('Prism.js: Renderer has been disposed.');
+			throw new Error('Vertex: Renderer has been disposed.');
 		}
 	}
 }

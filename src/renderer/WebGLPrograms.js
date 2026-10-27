@@ -35,7 +35,7 @@ export class WebGLPrograms {
 		if (entry === undefined) {
 			if (definition === undefined) {
 				throw new Error(
-					`Prism.js: No shader is available for material type "${material.type}".\n\n` +
+					`Vertex: No shader is available for material type "${material.type}".\n\n` +
 						`Built-in material types: ${Object.keys(SHADER_LIBRARY).join(', ')}.`
 				);
 			}

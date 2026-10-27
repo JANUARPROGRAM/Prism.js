@@ -11,7 +11,7 @@ import { fetchText } from './fetchText.js';
 const DEFAULT_COLOR = 0xcccccc;
 
 function fail(line, message) {
-	return new Error(`Prism.js: OBJ parse error at line ${line}: ${message}`);
+	return new Error(`Vertex: OBJ parse error at line ${line}: ${message}`);
 }
 
 function floats(rest, min, line, keyword) {
@@ -181,7 +181,7 @@ export class OBJLoader {
 			try {
 				merged.add(await this.mtlLoader.loadAsync(resolveURL(objUrl, name)));
 			} catch (error) {
-				console.warn(`Prism.js: Could not load material library "${name}" (${error.message}); default materials are used.`);
+				console.warn(`Vertex: Could not load material library "${name}" (${error.message}); default materials are used.`);
 			}
 		}
 		return merged;
@@ -208,7 +208,7 @@ export class OBJLoader {
 			if (found !== undefined) return found;
 			if (name !== '' && materials && !warned.has(name)) {
 				warned.add(name);
-				console.warn(`Prism.js: Material "${name}" is not defined in the loaded MTL; a default gray material is used.`);
+				console.warn(`Vertex: Material "${name}" is not defined in the loaded MTL; a default gray material is used.`);
 			}
 			if (fallback === null) fallback = new LambertMaterial({ color: DEFAULT_COLOR, side: this.side });
 			return fallback;

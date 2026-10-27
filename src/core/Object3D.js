@@ -55,11 +55,11 @@ export class Object3D {
 	add(...objects) {
 		for (const object of objects) {
 			if (!object || !object.isObject3D) {
-				throw new TypeError(`Prism.js: Object3D.add() expects Object3D instances, received ${String(object)}.`);
+				throw new TypeError(`Vertex: Object3D.add() expects Object3D instances, received ${String(object)}.`);
 			}
-			if (object === this) throw new Error('Prism.js: An object cannot be added as a child of itself.');
+			if (object === this) throw new Error('Vertex: An object cannot be added as a child of itself.');
 			for (let ancestor = this.parent; ancestor !== null; ancestor = ancestor.parent) {
-				if (ancestor === object) throw new Error('Prism.js: Cannot add an ancestor as a child (it would create a cycle).');
+				if (ancestor === object) throw new Error('Vertex: Cannot add an ancestor as a child (it would create a cycle).');
 			}
 			if (object.parent !== null) object.parent.remove(object);
 			object.parent = this;

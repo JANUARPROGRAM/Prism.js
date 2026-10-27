@@ -13,7 +13,7 @@ function glTypeOf(gl, array, what) {
 	if (array instanceof Int16Array) return gl.SHORT;
 	if (array instanceof Uint32Array) return gl.UNSIGNED_INT;
 	if (array instanceof Int32Array) return gl.INT;
-	throw new TypeError(`Prism.js: Unsupported array type ${array.constructor.name} for ${what}.`);
+	throw new TypeError(`Vertex: Unsupported array type ${array.constructor.name} for ${what}.`);
 }
 
 /** Line list (pairs of vertex indices) covering every unique triangle edge. */
@@ -57,7 +57,7 @@ export class WebGLGeometries {
 	/** Returns the up-to-date GPU record for `geometry`, uploading what changed. */
 	get(geometry) {
 		if (!geometry.attributes.position) {
-			throw new Error('Prism.js: Cannot draw a geometry without a "position" attribute.');
+			throw new Error('Vertex: Cannot draw a geometry without a "position" attribute.');
 		}
 		let record = this._records.get(geometry);
 		if (record === undefined) {
@@ -117,7 +117,7 @@ export class WebGLGeometries {
 				gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, index.array, gl.STATIC_DRAW);
 				record.indexType = glTypeOf(gl, index.array, 'index');
 				if (record.indexType !== gl.UNSIGNED_SHORT && record.indexType !== gl.UNSIGNED_INT) {
-					throw new TypeError('Prism.js: Geometry index must be a Uint16Array or Uint32Array.');
+					throw new TypeError('Vertex: Geometry index must be a Uint16Array or Uint32Array.');
 				}
 				record.indexCount = index.count;
 				record.indexVersion = index.version;

@@ -1,5 +1,5 @@
 {
-  "name": "prism.js",
+  "name": "Vertex",
   "version": "0.3.0",
   "description": "A lightweight JavaScript 3D rendering engine built from scratch on top of WebGL/WebGL2.",
   "keywords": [
@@ -36,7 +36,7 @@
     "test": "node --test",
     "build": "npm run build:js && npm run build:css",
     "prepublishOnly": "npm run build && npm test",
-    "build:js": "esbuild src/index.js --bundle --format=iife --global-name=Prism --sourcemap --outfile=dist/prism.js && esbuild src/index.js --bundle --format=iife --global-name=Prism --minify --sourcemap --outfile=dist/prism.min.js && esbuild src/index.js --bundle --format=esm --minify --sourcemap --outfile=dist/prism.module.js",
+    "build:js": "esbuild src/index.js --bundle --format=iife --global-name=Prism --sourcemap --outfile=dist/Vertex && esbuild src/index.js --bundle --format=iife --global-name=Prism --minify --sourcemap --outfile=dist/prism.min.js && esbuild src/index.js --bundle --format=esm --minify --sourcemap --outfile=dist/prism.module.js",
     "build:css": "esbuild src/prism.css --outfile=dist/prism.css && esbuild src/prism.css --minify --outfile=dist/prism.min.css",
     "assets": "node scripts/make-sample-assets.js"
   },
@@ -45,10 +45,10 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/JANUARPROGRAM/Prism.js.git"
+    "url": "git+https://github.com/JANUARPROGRAM/Vertex.git"
   },
-  "homepage": "https://github.com/JANUARPROGRAM/Prism.js#readme",
+  "homepage": "https://github.com/JANUARPROGRAM/Vertex#readme",
   "bugs": {
-    "url": "https://github.com/JANUARPROGRAM/Prism.js/issues"
+    "url": "https://github.com/JANUARPROGRAM/Vertex/issues"
   }
 }

@@ -18,9 +18,9 @@ export class PerspectiveCamera extends Camera {
 
 	updateProjectionMatrix() {
 		const { fov, aspect, near, far } = this;
-		if (!(fov > 0 && fov < 180)) throw new RangeError(`Prism.js: PerspectiveCamera fov must be between 0 and 180 degrees, received ${fov}.`);
-		if (!(aspect > 0)) throw new RangeError(`Prism.js: PerspectiveCamera aspect must be positive, received ${aspect}.`);
-		if (!(near > 0 && far > near)) throw new RangeError(`Prism.js: PerspectiveCamera requires 0 < near < far, received near=${near}, far=${far}.`);
+		if (!(fov > 0 && fov < 180)) throw new RangeError(`Vertex: PerspectiveCamera fov must be between 0 and 180 degrees, received ${fov}.`);
+		if (!(aspect > 0)) throw new RangeError(`Vertex: PerspectiveCamera aspect must be positive, received ${aspect}.`);
+		if (!(near > 0 && far > near)) throw new RangeError(`Vertex: PerspectiveCamera requires 0 < near < far, received near=${near}, far=${far}.`);
 		this.projectionMatrix.makePerspective(fov * DEG2RAD, aspect, near, far);
 	}
 }

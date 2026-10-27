@@ -31,14 +31,14 @@ export class PlaneGeometry extends BufferGeometry {
 export function assertPositive(name, values) {
 	for (const [key, value] of Object.entries(values)) {
 		if (!(value > 0) || !Number.isFinite(value)) {
-			throw new RangeError(`Prism.js: ${name} ${key} must be a positive finite number, received ${String(value)}.`);
+			throw new RangeError(`Vertex: ${name} ${key} must be a positive finite number, received ${String(value)}.`);
 		}
 	}
 }
 
 export function segments(name, key, value) {
 	if (!Number.isFinite(value) || value < 1) {
-		throw new RangeError(`Prism.js: ${name} ${key} must be at least 1, received ${String(value)}.`);
+		throw new RangeError(`Vertex: ${name} ${key} must be at least 1, received ${String(value)}.`);
 	}
 	return Math.floor(value);
 }

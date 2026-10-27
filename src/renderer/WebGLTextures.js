@@ -81,7 +81,7 @@ export class WebGLTextures {
 		const height = image.data ? image.height : (image.naturalHeight ?? image.videoHeight ?? image.height);
 		if (width > this._maxSize || height > this._maxSize) {
 			throw new Error(
-				`Prism.js: Texture "${texture.name || texture.id}" is ${width}x${height}, larger than this device's ` +
+				`Vertex: Texture "${texture.name || texture.id}" is ${width}x${height}, larger than this device's ` +
 					`maximum texture size (${this._maxSize}). Resize the image.`
 			);
 		}

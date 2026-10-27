@@ -67,7 +67,7 @@ export class WebGLLights {
 			this.pointCount++;
 		} else {
 			throw new TypeError(
-				`Prism.js: Unsupported light type "${light.constructor.name}". ` +
+				`Vertex: Unsupported light type "${light.constructor.name}". ` +
 					'Use AmbientLight, DirectionalLight or PointLight.'
 			);
 		}
@@ -88,7 +88,7 @@ export class WebGLLights {
 	_overflow(name, max) {
 		if (!this._warned) {
 			this._warned = true;
-			console.warn(`Prism.js: Only the first ${max} ${name} are used; additional ones are ignored.`);
+			console.warn(`Vertex: Only the first ${max} ${name} are used; additional ones are ignored.`);
 		}
 	}
 }

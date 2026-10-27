@@ -10,10 +10,10 @@ export class PointLight extends Light {
 	constructor(color, intensity, distance = 0, decay = 2) {
 		super(color, intensity);
 		if (!(distance >= 0) || !Number.isFinite(distance)) {
-			throw new RangeError(`Prism.js: PointLight distance must be a finite number >= 0, received ${String(distance)}.`);
+			throw new RangeError(`Vertex: PointLight distance must be a finite number >= 0, received ${String(distance)}.`);
 		}
 		if (!(decay >= 0) || !Number.isFinite(decay)) {
-			throw new RangeError(`Prism.js: PointLight decay must be a finite number >= 0, received ${String(decay)}.`);
+			throw new RangeError(`Vertex: PointLight decay must be a finite number >= 0, received ${String(decay)}.`);
 		}
 		this.distance = distance;
 		this.decay = decay;

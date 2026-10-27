@@ -7,13 +7,13 @@ export class BufferAttribute {
 	 */
 	constructor(array, itemSize, normalized = false) {
 		if (!ArrayBuffer.isView(array) || array instanceof DataView) {
-			throw new TypeError('Prism.js: BufferAttribute requires a typed array (for example Float32Array).');
+			throw new TypeError('Vertex: BufferAttribute requires a typed array (for example Float32Array).');
 		}
 		if (!Number.isInteger(itemSize) || itemSize < 1) {
-			throw new RangeError(`Prism.js: BufferAttribute itemSize must be a positive integer, received ${itemSize}.`);
+			throw new RangeError(`Vertex: BufferAttribute itemSize must be a positive integer, received ${itemSize}.`);
 		}
 		if (array.length % itemSize !== 0) {
-			throw new RangeError(`Prism.js: BufferAttribute array length ${array.length} is not a multiple of itemSize ${itemSize}.`);
+			throw new RangeError(`Vertex: BufferAttribute array length ${array.length} is not a multiple of itemSize ${itemSize}.`);
 		}
 		this.array = array;
 		this.itemSize = itemSize;

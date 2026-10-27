@@ -11,7 +11,7 @@ export class Light extends Object3D {
 	constructor(color = 0xffffff, intensity = 1) {
 		super();
 		if (!(intensity >= 0) || !Number.isFinite(intensity)) {
-			throw new RangeError(`Prism.js: Light intensity must be a finite number >= 0, received ${String(intensity)}.`);
+			throw new RangeError(`Vertex: Light intensity must be a finite number >= 0, received ${String(intensity)}.`);
 		}
 		this.color = new Color(color);
 		this.intensity = intensity;

@@ -40,7 +40,7 @@ function parseArgs(argv) {
 		else if (argv[i] === '--host') options.host = argv[++i];
 	}
 	if (!Number.isInteger(options.port) || options.port < 0 || options.port > 65535) {
-		console.error('Prism.js dev server: --port must be an integer between 0 and 65535.');
+		console.error('Vertex dev server: --port must be an integer between 0 and 65535.');
 		process.exit(1);
 	}
 	return options;
@@ -102,7 +102,7 @@ const server = createServer((req, res) => {
 
 server.on('error', (error) => {
 	if (error.code === 'EADDRINUSE') {
-		console.error(`Prism.js dev server: port ${port} is already in use. Try --port <number>.`);
+		console.error(`Vertex dev server: port ${port} is already in use. Try --port <number>.`);
 	} else {
 		console.error(error);
 	}
@@ -110,5 +110,5 @@ server.on('error', (error) => {
 });
 
 server.listen(port, host, () => {
-	console.log(`Prism.js dev server: http://${host}:${server.address().port}/`);
+	console.log(`Vertex dev server: http://${host}:${server.address().port}/`);
 });

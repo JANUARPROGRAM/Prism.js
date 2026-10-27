@@ -1,4 +1,4 @@
-// Prism Dodge: a 2D game drawn entirely through Prism.js Renderer + WebGLProgram.
+// Prism Dodge: a 2D game drawn entirely through Vertex Renderer + WebGLProgram.
 // All shapes go into one dynamic vertex buffer that is uploaded and drawn once per frame.
 import { Renderer, WebGLProgram } from '../../src/index.js';
 

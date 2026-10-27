@@ -23,11 +23,11 @@ export class Color {
 		if (typeof value === 'number') return this.setHex(value);
 		if (typeof value === 'string') return this.setStyle(value);
 		if (value && value.isColor) return this.copy(value);
-		throw new TypeError(`Prism.js: Cannot make a Color from ${String(value)}. Use 0xRRGGBB, '#rrggbb' or a Color.`);
+		throw new TypeError(`Vertex: Cannot make a Color from ${String(value)}. Use 0xRRGGBB, '#rrggbb' or a Color.`);
 	}
 	setHex(hex) {
 		if (!Number.isInteger(hex) || hex < 0 || hex > 0xffffff) {
-			throw new RangeError(`Prism.js: Expected a color as an integer between 0x000000 and 0xffffff, received ${String(hex)}.`);
+			throw new RangeError(`Vertex: Expected a color as an integer between 0x000000 and 0xffffff, received ${String(hex)}.`);
 		}
 		this.r = ((hex >> 16) & 255) / 255;
 		this.g = ((hex >> 8) & 255) / 255;
@@ -37,7 +37,7 @@ export class Color {
 	setStyle(style) {
 		const m = HEX_STYLE.exec(style);
 		if (m === null) {
-			throw new RangeError(`Prism.js: Unsupported color string "${style}". Use '#rgb' or '#rrggbb'.`);
+			throw new RangeError(`Vertex: Unsupported color string "${style}". Use '#rgb' or '#rrggbb'.`);
 		}
 		if (m[1] !== undefined) {
 			return this.setHex(parseInt(m[1] + m[1] + m[2] + m[2] + m[3] + m[3], 16));

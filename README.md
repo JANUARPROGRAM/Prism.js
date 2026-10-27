@@ -1,8 +1,8 @@
 <p align="center">
-  <img src="assets/logo.svg" alt="Logo Prism.js" width="128" height="128">
+  <img src="assets/logo.svg" alt="Logo Vertex" width="128" height="128">
 </p>
 
-<h1 align="center">Prism.js</h1>
+<h1 align="center">Vertex</h1>
 
 <p align="center">
   Engine rendering 3D JavaScript ringan yang dibuat dari nol di atas WebGL2.
@@ -13,11 +13,11 @@
 </p>
 
 > **Status: pre-alpha (v0.3.0).** Alur inti berjalan dari ujung ke ujung: math, scene graph, kamera, geometry, material, lampu, texture, pemuat **OBJ + MTL**, dan `renderer.render(scene, camera)`.
-> **Belum ada** shadow, specular, loader glTF, picking, maupun sistem animasi. Prism.js **belum** sebanding fiturnya dengan engine matang seperti Three.js. Rincian lengkap ada di [PROGRESS.md](PROGRESS.md).
+> **Belum ada** shadow, specular, loader glTF, picking, maupun sistem animasi. Vertex **belum** sebanding fiturnya dengan engine matang seperti Three.js. Rincian lengkap ada di [PROGRESS.md](PROGRESS.md).
 
 ## Daftar isi
 
-- [Kenapa Prism.js](#kenapa-prismjs)
+- [Kenapa Vertex](#kenapa-prismjs)
 - [Instalasi](#instalasi)
 - [Mulai cepat](#mulai-cepat)
 - [CSS bantu](#css-bantu)
@@ -33,7 +33,7 @@
 - [Keterbatasan](#keterbatasan)
 - [Lisensi](#lisensi)
 
-## Kenapa Prism.js
+## Kenapa Vertex
 
 Engine kecil dengan arsitektur sendiri: API sederhana untuk pemula, titik perluasan yang jelas untuk yang sudah mahir, tanpa dependensi runtime, dan tanpa framework. Kodenya tidak membungkus atau menyalin engine 3D lain.
 
@@ -46,8 +46,8 @@ Prinsip: API sederhana, inti kecil, modular, kode mudah dibaca, dan mengutamakan
 Cara tercepat, tanpa bundler. Taruh CSS (opsional) di `<head>` dan JS sebelum skripmu:
 
 ```html
-<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/JANUARPROGRAM/Prism.js@v0.3.0/dist/prism.css">
-<script src="https://cdn.jsdelivr.net/gh/JANUARPROGRAM/Prism.js@v0.3.0/dist/prism.js"></script>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/JANUARPROGRAM/Vertex@v0.3.0/dist/prism.css">
+<script src="https://cdn.jsdelivr.net/gh/JANUARPROGRAM/Vertex@v0.3.0/dist/Vertex"></script>
 ```
 
 Skrip itu membuat satu variabel global bernama `Prism` (misalnya `new Prism.Renderer(...)`).
@@ -56,7 +56,7 @@ File yang tersedia di rilis:
 
 | File | Isi |
 | --- | --- |
-| `dist/prism.js` | Build global (IIFE), tidak diminify, mudah di-debug. Menyediakan `window.Prism`. |
+| `dist/Vertex` | Build global (IIFE), tidak diminify, mudah di-debug. Menyediakan `window.Prism`. |
 | `dist/prism.min.js` | Sama seperti di atas, tetapi diminify (lebih kecil). |
 | `dist/prism.module.js` | Build ES module, diminify. |
 | `dist/prism.css` | CSS bantu (opsional), lihat [CSS bantu](#css-bantu). |
@@ -69,7 +69,7 @@ Ganti `@v0.3.0` dengan versi lain bila perlu. Untuk produksi, pakai tag versi ya
 
 ```html
 <script type="module">
-  import * as Prism from "https://cdn.jsdelivr.net/gh/JANUARPROGRAM/Prism.js@v0.3.0/dist/prism.module.js";
+  import * as Prism from "https://cdn.jsdelivr.net/gh/JANUARPROGRAM/Vertex@v0.3.0/dist/prism.module.js";
 
   const renderer = new Prism.Renderer({ canvas: document.querySelector("canvas") });
 </script>
@@ -80,8 +80,8 @@ Ganti `@v0.3.0` dengan versi lain bila perlu. Untuk produksi, pakai tag versi ya
 Repo ini berisi ES module native, jadi bisa dipakai langsung tanpa build:
 
 ```bash
-git clone https://github.com/JANUARPROGRAM/Prism.js.git
-cd Prism.js
+git clone https://github.com/JANUARPROGRAM/Vertex.git
+cd Vertex
 npm run dev        # server lokal di http://localhost:8080/ (tidak perlu npm install)
 ```
 
@@ -93,7 +93,7 @@ Paket npm **belum** dipublikasikan.
 
 ## Mulai cepat
 
-Satu file HTML lengkap yang menampilkan kubus berputar (jika dibuka dari repo ini, ganti URL CDN dengan `../../dist/prism.js` dan `../../dist/prism.css`):
+Satu file HTML lengkap yang menampilkan kubus berputar (jika dibuka dari repo ini, ganti URL CDN dengan `../../dist/Vertex` dan `../../dist/prism.css`):
 
 ```html
 <!DOCTYPE html>
@@ -101,15 +101,15 @@ Satu file HTML lengkap yang menampilkan kubus berputar (jika dibuka dari repo in
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Kubus Prism.js</title>
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/JANUARPROGRAM/Prism.js@v0.3.0/dist/prism.css">
+  <title>Kubus Vertex</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/JANUARPROGRAM/Vertex@v0.3.0/dist/prism.css">
   <style>html, body { height: 100%; margin: 0; background: #0b0d17; }</style>
 </head>
 <body>
   <canvas id="canvas" class="prism-canvas prism-fullscreen"></canvas>
   <pre id="error" class="prism-error" hidden></pre>
 
-  <script src="https://cdn.jsdelivr.net/gh/JANUARPROGRAM/Prism.js@v0.3.0/dist/prism.js"></script>
+  <script src="https://cdn.jsdelivr.net/gh/JANUARPROGRAM/Vertex@v0.3.0/dist/Vertex"></script>
   <script>
     try {
       const renderer = new Prism.Renderer({ canvas: document.getElementById("canvas") });
@@ -140,7 +140,7 @@ Satu file HTML lengkap yang menampilkan kubus berputar (jika dibuka dari repo in
       }
       requestAnimationFrame(animate);
     } catch (error) {
-      // Pesan error Prism.js menyertakan konteks (log shader, penyebab WebGL2 gagal, dll).
+      // Pesan error Vertex menyertakan konteks (log shader, penyebab WebGL2 gagal, dll).
       const box = document.getElementById("error");
       box.textContent = error.message;
       box.hidden = false;
@@ -170,13 +170,13 @@ Material tanpa pencahayaan: `BasicMaterial` berwarna rata dan `NormalMaterial` d
 Folder [`assets/`](assets/) disiapkan untuk berkas pendukung. Setelah rilis, setiap berkas bisa diakses lewat pola:
 
 ```
-https://cdn.jsdelivr.net/gh/JANUARPROGRAM/Prism.js@v0.3.0/assets/nama-file
+https://cdn.jsdelivr.net/gh/JANUARPROGRAM/Vertex@v0.3.0/assets/nama-file
 ```
 
 Contoh dengan berkas yang sudah ada:
 
 ```html
-<img src="https://cdn.jsdelivr.net/gh/JANUARPROGRAM/Prism.js@v0.3.0/assets/logo.svg" width="64" alt="Prism.js">
+<img src="https://cdn.jsdelivr.net/gh/JANUARPROGRAM/Vertex@v0.3.0/assets/logo.svg" width="64" alt="Vertex">
 ```
 
 | Berkas | Keterangan |
@@ -186,7 +186,7 @@ Contoh dengan berkas yang sudah ada:
 | `assets/models/crate.obj`, `crate.mtl`, `crate.png` | Kotak kayu bertekstur (OBJ + MTL + PNG). |
 | `assets/models/house.obj`, `house.mtl` | Rumah dengan tiga material (dinding, atap, pintu). |
 
-Model dan texture dari folder ini bisa dimuat langsung, misalnya `new Prism.OBJLoader().loadAsync("https://cdn.jsdelivr.net/gh/JANUARPROGRAM/Prism.js@v0.3.0/assets/models/crate.obj")` (lihat [Memuat model OBJ dan MTL](#memuat-model-obj-dan-mtl)). Jangan mengubah isi berkas pada tag yang sudah dirilis (CDN meng-cache); buat tag baru. Berkas contoh dibuat ulang dengan `npm run assets`.
+Model dan texture dari folder ini bisa dimuat langsung, misalnya `new Prism.OBJLoader().loadAsync("https://cdn.jsdelivr.net/gh/JANUARPROGRAM/Vertex@v0.3.0/assets/models/crate.obj")` (lihat [Memuat model OBJ dan MTL](#memuat-model-obj-dan-mtl)). Jangan mengubah isi berkas pada tag yang sudah dirilis (CDN meng-cache); buat tag baru. Berkas contoh dibuat ulang dengan `npm run assets`.
 
 ## Ringkasan API
 
@@ -325,7 +325,7 @@ scene.add(new Prism.AmbientLight(0xffffff, 0.6), new Prism.DirectionalLight(0xff
 `loadAsync` membaca baris `mtllib` di file `.obj`, memuat file `.mtl` di folder yang sama, lalu memuat texture (`map_Kd`) relatif terhadap file `.mtl`. Semua path dihitung relatif terhadap URL file yang menyebutkannya, jadi struktur folder model tetap utuh, termasuk dari CDN:
 
 ```js
-const base = "https://cdn.jsdelivr.net/gh/JANUARPROGRAM/Prism.js@v0.3.0/assets/models/";
+const base = "https://cdn.jsdelivr.net/gh/JANUARPROGRAM/Vertex@v0.3.0/assets/models/";
 const house = await new Prism.OBJLoader().loadAsync(base + "house.obj");
 ```
 
@@ -400,7 +400,7 @@ examples/         contoh yang bisa dijalankan
 
 ## Dukungan browser
 
-Prism.js membutuhkan **WebGL2**. Tanpa WebGL2, pembuatan `Renderer` melempar error yang menjelaskan kemungkinan penyebabnya. Belum ada fallback WebGL1.
+Vertex membutuhkan **WebGL2**. Tanpa WebGL2, pembuatan `Renderer` melempar error yang menjelaskan kemungkinan penyebabnya. Belum ada fallback WebGL1.
 
 - **Teruji:** Chromium 141 headless dengan rendering software (SwiftShader).
 - **Belum diuji:** Firefox, Safari, Edge, Chrome Android, GPU sungguhan, dan performa di perangkat apa pun.
@@ -428,18 +428,18 @@ jsDelivr (`/gh/`) menyajikan berkas langsung dari repo GitHub pada tag tertentu,
    git push origin v0.3.0
    ```
    atau lewat web GitHub: *Releases → Draft a new release → Choose a tag → ketik `v0.3.0` → Publish release*.
-3. **Cek URL** di browser, misalnya `https://cdn.jsdelivr.net/gh/JANUARPROGRAM/Prism.js@v0.3.0/dist/prism.js`.
-4. Jika berkas baru tidak langsung muncul, itu cache CDN. Kamu bisa meminta purge lewat `https://purge.jsdelivr.net/gh/JANUARPROGRAM/Prism.js@v0.3.0/dist/prism.js`.
+3. **Cek URL** di browser, misalnya `https://cdn.jsdelivr.net/gh/JANUARPROGRAM/Vertex@v0.3.0/dist/Vertex`.
+4. Jika berkas baru tidak langsung muncul, itu cache CDN. Kamu bisa meminta purge lewat `https://purge.jsdelivr.net/gh/JANUARPROGRAM/Vertex@v0.3.0/dist/Vertex`.
 5. Setiap kali source berubah, jalankan `npm run build` dan commit hasil `dist/` sebelum membuat tag baru. Jangan mengubah isi tag yang sudah dirilis; buat versi baru (misalnya `v0.3.1`).
 
 ## Pemecahan masalah
 
 | Gejala | Kemungkinan penyebab dan solusi |
 | --- | --- |
-| `Prism.js: Failed to create a WebGL2 context` | Browser/perangkat tidak mendukung WebGL2, akselerasi hardware dimatikan, atau canvas sudah punya context lain (mis. `"2d"`). Pesan error memuat keterangan dari browser jika ada. |
+| `Vertex: Failed to create a WebGL2 context` | Browser/perangkat tidak mendukung WebGL2, akselerasi hardware dimatikan, atau canvas sudah punya context lain (mis. `"2d"`). Pesan error memuat keterangan dari browser jika ada. |
 | URL CDN menghasilkan 404 | Tag `v0.3.0` belum dibuat/di-push, atau folder `dist/` / `assets/` belum diunggah. Lihat [Merilis](#merilis-ke-github-dan-jsdelivr). |
-| `Prism is not defined` | Tag `<script>` Prism.js harus dimuat **sebelum** skripmu, dan memakai `dist/prism.js` atau `dist/prism.min.js` (bukan `prism.module.js`; itu untuk `import`). |
-| Variabel global `Prism` bentrok | Library penyorot sintaks [PrismJS](https://prismjs.com) juga memakai nama global `Prism` dan nama berkas `prism.js`/`prism.css`. Jangan memuat keduanya pada halaman yang sama; gunakan `dist/prism.module.js` dengan `import * as Prism ...` (nama bisa kamu ganti) atau ganti nama berkas salinanmu. |
+| `Prism is not defined` | Tag `<script>` Vertex harus dimuat **sebelum** skripmu, dan memakai `dist/Vertex` atau `dist/prism.min.js` (bukan `prism.module.js`; itu untuk `import`). |
+| Variabel global `Prism` bentrok | Library penyorot sintaks [PrismJS](https://prismjs.com) juga memakai nama global `Prism` dan nama berkas `Vertex`/`prism.css`. Jangan memuat keduanya pada halaman yang sama; gunakan `dist/prism.module.js` dengan `import * as Prism ...` (nama bisa kamu ganti) atau ganti nama berkas salinanmu. |
 | Layar kosong, tanpa error | Pastikan `renderer.render(scene, camera)` dipanggil terus (lewat `requestAnimationFrame`), objek berada di depan kamera (kamera menghadap -Z), dan `near`/`far` kamera mencakup objekmu. Jika canvas diatur CSS, panggil `renderer.resizeToDisplaySize()` dan perbarui `camera.aspect`. |
 | Objek terlihat dari dalam / bolong | Segitiga hanya digambar dari sisi depan secara default; gunakan `side: Prism.DoubleSide` atau `BackSide`. |
 | Objek `LambertMaterial` tampak hitam | Belum ada lampu di scene, atau geometry tidak punya `normal` (panggil `computeVertexNormals()`). Tambahkan `AmbientLight` dan/atau `DirectionalLight`. |

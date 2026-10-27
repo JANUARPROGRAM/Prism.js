@@ -46,7 +46,7 @@ export function compileShader(gl, type, source, programName = 'unnamed') {
 	const shader = gl.createShader(type);
 	if (shader === null) {
 		throw new Error(
-			`Prism.js: Failed to create a ${kind} shader object.\n\n` +
+			`Vertex: Failed to create a ${kind} shader object.\n\n` +
 				`The WebGL context may have been lost.\n\nProgram:\n${programName}`
 		);
 	}
@@ -58,7 +58,7 @@ export function compileShader(gl, type, source, programName = 'unnamed') {
 		const log = formatLog(gl.getShaderInfoLog(shader));
 		gl.deleteShader(shader);
 		throw new Error(
-			`Prism.js: Failed to compile ${kind} shader.\n\n` +
+			`Vertex: Failed to compile ${kind} shader.\n\n` +
 				`WebGL error:\n${log}\n\nProgram:\n${programName}${describeSource(source, log)}`
 		);
 	}
@@ -75,7 +75,7 @@ export class WebGLProgram {
 	constructor(gl, { vertexShader, fragmentShader, name = 'unnamed' } = {}) {
 		if (typeof vertexShader !== 'string' || typeof fragmentShader !== 'string') {
 			throw new TypeError(
-				'Prism.js: WebGLProgram requires `vertexShader` and `fragmentShader` source strings.'
+				'Vertex: WebGLProgram requires `vertexShader` and `fragmentShader` source strings.'
 			);
 		}
 
@@ -101,7 +101,7 @@ export class WebGLProgram {
 			gl.deleteShader(vertex);
 			gl.deleteShader(fragment);
 			throw new Error(
-				`Prism.js: Failed to create a program object.\n\n` +
+				`Vertex: Failed to create a program object.\n\n` +
 					`The WebGL context may have been lost.\n\nProgram:\n${name}`
 			);
 		}
@@ -122,7 +122,7 @@ export class WebGLProgram {
 		if (!linked) {
 			gl.deleteProgram(program);
 			throw new Error(
-				`Prism.js: Failed to link shader program.\n\nWebGL error:\n${log}\n\nProgram:\n${name}`
+				`Vertex: Failed to link shader program.\n\nWebGL error:\n${log}\n\nProgram:\n${name}`
 			);
 		}
 
@@ -171,7 +171,7 @@ export class WebGLProgram {
 
 	_assertAlive() {
 		if (this.program === null) {
-			throw new Error(`Prism.js: WebGLProgram "${this.name}" has been disposed.`);
+			throw new Error(`Vertex: WebGLProgram "${this.name}" has been disposed.`);
 		}
 	}
 }

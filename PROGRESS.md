@@ -11,7 +11,7 @@
 - **Phase 7 – Textures**: Texture (image / canvas / ImageBitmap / raw RGBA), TextureLoader (Image based, CORS aware), filtering, wrapping, mipmaps, flipY, 1x1 white placeholder while loading, dispose.
 - **Phase 8 – Loaders**: OBJLoader (v/vt/vn/f in all four forms, negative indices, polygons, o/g/usemtl/mtllib, flat normals when missing, line-numbered errors), MTLLoader (Kd, d/Tr, map_Kd with options), MaterialLibrary, automatic mtllib + texture loading relative to each file, URL modifier for user-picked files.
 - Examples: 01 triangle, 02 game, 03 scene, 04 lighting, 05 obj (viewer with file picker), cdn (script tag + CSS).
-- Release packaging for jsDelivr: `dist/` committed (prism.js IIFE global `Prism`, prism.min.js, prism.module.js, prism.css, prism.min.css + maps); `assets/` (logo, preview, models/crate, models/house); `npm run assets` regenerates the models.
+- Release packaging for jsDelivr: `dist/` committed (Vertex IIFE global `Prism`, prism.min.js, prism.module.js, prism.css, prism.min.css + maps); `assets/` (logo, preview, models/crate, models/house); `npm run assets` regenerates the models.
 - **Browser pixel checks** (`tests/browser/`): 26 checks against a real WebGL2 context.
 
 ## In Progress
@@ -28,7 +28,7 @@
 - Examples 06-10 in the original plan are covered by 03-05; docs/ folder with an API reference.
 
 ## Known Bugs / Limitations
-- The global name `Prism` (and file names prism.js / prism.css) collide with the PrismJS syntax highlighter on the same page (documented in the README).
+- The global name `Prism` (and file names Vertex / prism.css) collide with the PrismJS syntax highlighter on the same page (documented in the README).
 - `dist/` must be rebuilt (`npm run build`) and committed before every tag; nothing automates it.
 - LambertMaterial renders black without lights; lit materials need a `normal` attribute (clear error otherwise).
 - OBJ: concave polygons are fan-triangulated incorrectly; normals are flat when the file has none; the whole model's normals are recomputed if only some faces have `vn`.

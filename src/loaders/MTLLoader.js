@@ -32,7 +32,7 @@ export class MaterialLibrary {
 }
 
 function fail(line, message) {
-	return new Error(`Prism.js: MTL parse error at line ${line}: ${message}`);
+	return new Error(`Vertex: MTL parse error at line ${line}: ${message}`);
 }
 
 function numbers(rest, count, line, keyword) {
@@ -146,7 +146,7 @@ export class MTLLoader {
 			if (def.map !== null && this.loadTextures) {
 				const url = resolveURL(basePath, def.map);
 				const texture = this.textureLoader.load(url, undefined, () => {
-					console.warn(`Prism.js: Texture "${url}" of material "${def.name}" failed to load; its color is used instead.`);
+					console.warn(`Vertex: Texture "${url}" of material "${def.name}" failed to load; its color is used instead.`);
 				});
 				texture.wrapS = texture.wrapT = RepeatWrapping;
 				material.map = texture;

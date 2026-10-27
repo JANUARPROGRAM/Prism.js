@@ -8,7 +8,7 @@ export class TextureLoader {
 		this._urlModifier = null;
 		this._createImage = () => {
 			if (typeof Image === 'undefined') {
-				throw new Error('Prism.js: TextureLoader needs a browser environment (the Image class is not available).');
+				throw new Error('Vertex: TextureLoader needs a browser environment (the Image class is not available).');
 			}
 			return new Image();
 		};
@@ -35,7 +35,7 @@ export class TextureLoader {
 			if (onLoad) onLoad(texture);
 		};
 		image.onerror = () => {
-			const error = new Error(`Prism.js: Failed to load texture "${url}".`);
+			const error = new Error(`Vertex: Failed to load texture "${url}".`);
 			if (onError) onError(error);
 			else console.error(error);
 		};

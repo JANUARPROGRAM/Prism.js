@@ -27,7 +27,7 @@ export class Material {
 	setValues(values = {}) {
 		for (const key of Object.keys(values)) {
 			if (!(key in this)) {
-				throw new TypeError(`Prism.js: "${key}" is not a property of ${this.type}.`);
+				throw new TypeError(`Vertex: "${key}" is not a property of ${this.type}.`);
 			}
 			this[key] = values[key];
 		}

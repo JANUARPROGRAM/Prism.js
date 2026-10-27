@@ -19,7 +19,7 @@ export class WebGLState {
 		this._depthMask = true;
 		this._cullMode = 0; // 0 = culling disabled, otherwise gl.BACK / gl.FRONT
 		this._blend = false;
-		// ...plus the constant configuration Prism.js relies on.
+		// ...plus the constant configuration Vertex relies on.
 		gl.depthFunc(gl.LEQUAL);
 		gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
 		gl.frontFace(gl.CCW);

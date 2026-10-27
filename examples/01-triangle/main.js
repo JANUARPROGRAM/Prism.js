@@ -71,7 +71,7 @@ try {
 	window.addEventListener('resize', draw);
 	draw();
 
-	console.info('Prism.js:', renderer.capabilities);
+	console.info('Vertex:', renderer.capabilities);
 } catch (error) {
 	showError(error);
 }

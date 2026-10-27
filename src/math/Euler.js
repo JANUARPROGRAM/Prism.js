@@ -7,7 +7,7 @@ const _matrix = new Matrix4();
 
 function assertOrder(order) {
 	if (!ORDERS.test(order)) {
-		throw new RangeError(`Prism.js: Invalid Euler order "${String(order)}". Use one of XYZ, XZY, YXZ, YZX, ZXY, ZYX.`);
+		throw new RangeError(`Vertex: Invalid Euler order "${String(order)}". Use one of XYZ, XZY, YXZ, YZX, ZXY, ZYX.`);
 	}
 }
 

@@ -1110,7 +1110,7 @@ var Prism = (() => {
   var _matrix = new Matrix4();
   function assertOrder(order) {
     if (!ORDERS.test(order)) {
-      throw new RangeError(`Prism.js: Invalid Euler order "${String(order)}". Use one of XYZ, XZY, YXZ, YZX, ZXY, ZYX.`);
+      throw new RangeError(`Vertex: Invalid Euler order "${String(order)}". Use one of XYZ, XZY, YXZ, YZX, ZXY, ZYX.`);
     }
   }
   var Euler = class _Euler {
@@ -1240,11 +1240,11 @@ var Prism = (() => {
       if (typeof value === "number") return this.setHex(value);
       if (typeof value === "string") return this.setStyle(value);
       if (value && value.isColor) return this.copy(value);
-      throw new TypeError(`Prism.js: Cannot make a Color from ${String(value)}. Use 0xRRGGBB, '#rrggbb' or a Color.`);
+      throw new TypeError(`Vertex: Cannot make a Color from ${String(value)}. Use 0xRRGGBB, '#rrggbb' or a Color.`);
     }
     setHex(hex) {
       if (!Number.isInteger(hex) || hex < 0 || hex > 16777215) {
-        throw new RangeError(`Prism.js: Expected a color as an integer between 0x000000 and 0xffffff, received ${String(hex)}.`);
+        throw new RangeError(`Vertex: Expected a color as an integer between 0x000000 and 0xffffff, received ${String(hex)}.`);
       }
       this.r = (hex >> 16 & 255) / 255;
       this.g = (hex >> 8 & 255) / 255;
@@ -1254,7 +1254,7 @@ var Prism = (() => {
     setStyle(style) {
       const m = HEX_STYLE.exec(style);
       if (m === null) {
-        throw new RangeError(`Prism.js: Unsupported color string "${style}". Use '#rgb' or '#rrggbb'.`);
+        throw new RangeError(`Vertex: Unsupported color string "${style}". Use '#rgb' or '#rrggbb'.`);
       }
       if (m[1] !== void 0) {
         return this.setHex(parseInt(m[1] + m[1] + m[2] + m[2] + m[3] + m[3], 16));
@@ -1346,11 +1346,11 @@ var Prism = (() => {
     add(...objects) {
       for (const object of objects) {
         if (!object || !object.isObject3D) {
-          throw new TypeError(`Prism.js: Object3D.add() expects Object3D instances, received ${String(object)}.`);
+          throw new TypeError(`Vertex: Object3D.add() expects Object3D instances, received ${String(object)}.`);
         }
-        if (object === this) throw new Error("Prism.js: An object cannot be added as a child of itself.");
+        if (object === this) throw new Error("Vertex: An object cannot be added as a child of itself.");
         for (let ancestor = this.parent; ancestor !== null; ancestor = ancestor.parent) {
-          if (ancestor === object) throw new Error("Prism.js: Cannot add an ancestor as a child (it would create a cycle).");
+          if (ancestor === object) throw new Error("Vertex: Cannot add an ancestor as a child (it would create a cycle).");
         }
         if (object.parent !== null) object.parent.remove(object);
         object.parent = this;
@@ -1474,13 +1474,13 @@ var Prism = (() => {
      */
     constructor(array, itemSize, normalized = false) {
       if (!ArrayBuffer.isView(array) || array instanceof DataView) {
-        throw new TypeError("Prism.js: BufferAttribute requires a typed array (for example Float32Array).");
+        throw new TypeError("Vertex: BufferAttribute requires a typed array (for example Float32Array).");
       }
       if (!Number.isInteger(itemSize) || itemSize < 1) {
-        throw new RangeError(`Prism.js: BufferAttribute itemSize must be a positive integer, received ${itemSize}.`);
+        throw new RangeError(`Vertex: BufferAttribute itemSize must be a positive integer, received ${itemSize}.`);
       }
       if (array.length % itemSize !== 0) {
-        throw new RangeError(`Prism.js: BufferAttribute array length ${array.length} is not a multiple of itemSize ${itemSize}.`);
+        throw new RangeError(`Vertex: BufferAttribute array length ${array.length} is not a multiple of itemSize ${itemSize}.`);
       }
       this.array = array;
       this.itemSize = itemSize;
@@ -1509,7 +1509,7 @@ var Prism = (() => {
     }
     setAttribute(name, attribute) {
       if (!attribute || !attribute.isBufferAttribute) {
-        throw new TypeError(`Prism.js: setAttribute("${name}") expects a BufferAttribute.`);
+        throw new TypeError(`Vertex: setAttribute("${name}") expects a BufferAttribute.`);
       }
       this.attributes[name] = attribute;
       return this;
@@ -1553,7 +1553,7 @@ var Prism = (() => {
     computeVertexNormals() {
       const position = this.attributes.position;
       if (!position || position.itemSize !== 3) {
-        throw new Error('Prism.js: computeVertexNormals() needs a 3-component "position" attribute.');
+        throw new Error('Vertex: computeVertexNormals() needs a 3-component "position" attribute.');
       }
       const p = position.array;
       const normals = new Float32Array(p.length);
@@ -1620,7 +1620,7 @@ var Prism = (() => {
     setValues(values = {}) {
       for (const key of Object.keys(values)) {
         if (!(key in this)) {
-          throw new TypeError(`Prism.js: "${key}" is not a property of ${this.type}.`);
+          throw new TypeError(`Vertex: "${key}" is not a property of ${this.type}.`);
         }
         this[key] = values[key];
       }
@@ -1717,9 +1717,9 @@ var Prism = (() => {
     }
     updateProjectionMatrix() {
       const { fov, aspect, near, far } = this;
-      if (!(fov > 0 && fov < 180)) throw new RangeError(`Prism.js: PerspectiveCamera fov must be between 0 and 180 degrees, received ${fov}.`);
-      if (!(aspect > 0)) throw new RangeError(`Prism.js: PerspectiveCamera aspect must be positive, received ${aspect}.`);
-      if (!(near > 0 && far > near)) throw new RangeError(`Prism.js: PerspectiveCamera requires 0 < near < far, received near=${near}, far=${far}.`);
+      if (!(fov > 0 && fov < 180)) throw new RangeError(`Vertex: PerspectiveCamera fov must be between 0 and 180 degrees, received ${fov}.`);
+      if (!(aspect > 0)) throw new RangeError(`Vertex: PerspectiveCamera aspect must be positive, received ${aspect}.`);
+      if (!(near > 0 && far > near)) throw new RangeError(`Vertex: PerspectiveCamera requires 0 < near < far, received near=${near}, far=${far}.`);
       this.projectionMatrix.makePerspective(fov * DEG2RAD, aspect, near, far);
     }
   };
@@ -1741,7 +1741,7 @@ var Prism = (() => {
     updateProjectionMatrix() {
       const { left, right, top, bottom, near, far } = this;
       if (left === right || top === bottom || near === far) {
-        throw new RangeError("Prism.js: OrthographicCamera needs a non-empty box (left != right, top != bottom, near != far).");
+        throw new RangeError("Vertex: OrthographicCamera needs a non-empty box (left != right, top != bottom, near != far).");
       }
       this.projectionMatrix.makeOrthographic(left, right, top, bottom, near, far);
     }
@@ -1803,13 +1803,13 @@ var Prism = (() => {
   function assertPositive(name, values) {
     for (const [key, value] of Object.entries(values)) {
       if (!(value > 0) || !Number.isFinite(value)) {
-        throw new RangeError(`Prism.js: ${name} ${key} must be a positive finite number, received ${String(value)}.`);
+        throw new RangeError(`Vertex: ${name} ${key} must be a positive finite number, received ${String(value)}.`);
       }
     }
   }
   function segments(name, key, value) {
     if (!Number.isFinite(value) || value < 1) {
-      throw new RangeError(`Prism.js: ${name} ${key} must be at least 1, received ${String(value)}.`);
+      throw new RangeError(`Vertex: ${name} ${key} must be at least 1, received ${String(value)}.`);
     }
     return Math.floor(value);
   }
@@ -1912,7 +1912,7 @@ var Prism = (() => {
     constructor(color = 16777215, intensity = 1) {
       super();
       if (!(intensity >= 0) || !Number.isFinite(intensity)) {
-        throw new RangeError(`Prism.js: Light intensity must be a finite number >= 0, received ${String(intensity)}.`);
+        throw new RangeError(`Vertex: Light intensity must be a finite number >= 0, received ${String(intensity)}.`);
       }
       this.color = new Color(color);
       this.intensity = intensity;
@@ -1941,10 +1941,10 @@ var Prism = (() => {
     constructor(color, intensity, distance = 0, decay = 2) {
       super(color, intensity);
       if (!(distance >= 0) || !Number.isFinite(distance)) {
-        throw new RangeError(`Prism.js: PointLight distance must be a finite number >= 0, received ${String(distance)}.`);
+        throw new RangeError(`Vertex: PointLight distance must be a finite number >= 0, received ${String(distance)}.`);
       }
       if (!(decay >= 0) || !Number.isFinite(decay)) {
-        throw new RangeError(`Prism.js: PointLight decay must be a finite number >= 0, received ${String(decay)}.`);
+        throw new RangeError(`Vertex: PointLight decay must be a finite number >= 0, received ${String(decay)}.`);
       }
       this.distance = distance;
       this.decay = decay;
@@ -2020,7 +2020,7 @@ var Prism = (() => {
       this._urlModifier = null;
       this._createImage = () => {
         if (typeof Image === "undefined") {
-          throw new Error("Prism.js: TextureLoader needs a browser environment (the Image class is not available).");
+          throw new Error("Vertex: TextureLoader needs a browser environment (the Image class is not available).");
         }
         return new Image();
       };
@@ -2045,7 +2045,7 @@ var Prism = (() => {
         if (onLoad) onLoad(texture);
       };
       image.onerror = () => {
-        const error = new Error(`Prism.js: Failed to load texture "${url}".`);
+        const error = new Error(`Vertex: Failed to load texture "${url}".`);
         if (onError) onError(error);
         else console.error(error);
       };
@@ -2072,17 +2072,17 @@ var Prism = (() => {
   // src/loaders/fetchText.js
   async function fetchText(url, what = "file") {
     if (typeof fetch !== "function") {
-      throw new Error(`Prism.js: fetch() is not available, cannot load ${what} "${url}".`);
+      throw new Error(`Vertex: fetch() is not available, cannot load ${what} "${url}".`);
     }
     let response;
     try {
       response = await fetch(url);
     } catch (cause) {
-      throw new Error(`Prism.js: Failed to load ${what} "${url}": ${cause.message}`, { cause });
+      throw new Error(`Vertex: Failed to load ${what} "${url}": ${cause.message}`, { cause });
     }
     if (!response.ok) {
       throw new Error(
-        `Prism.js: Failed to load ${what} "${url}" (HTTP ${response.status}${response.statusText ? " " + response.statusText : ""}).`
+        `Vertex: Failed to load ${what} "${url}" (HTTP ${response.status}${response.statusText ? " " + response.statusText : ""}).`
       );
     }
     return response.text();
@@ -2116,7 +2116,7 @@ var Prism = (() => {
     }
   };
   function fail(line, message) {
-    return new Error(`Prism.js: MTL parse error at line ${line}: ${message}`);
+    return new Error(`Vertex: MTL parse error at line ${line}: ${message}`);
   }
   function numbers(rest, count, line, keyword) {
     const values = rest.split(/\s+/).filter((t) => t !== "").slice(0, count).map(Number);
@@ -2215,7 +2215,7 @@ var Prism = (() => {
         if (def.map !== null && this.loadTextures) {
           const url = resolveURL(basePath, def.map);
           const texture = this.textureLoader.load(url, void 0, () => {
-            console.warn(`Prism.js: Texture "${url}" of material "${def.name}" failed to load; its color is used instead.`);
+            console.warn(`Vertex: Texture "${url}" of material "${def.name}" failed to load; its color is used instead.`);
           });
           texture.wrapS = texture.wrapT = RepeatWrapping;
           material.map = texture;
@@ -2230,7 +2230,7 @@ var Prism = (() => {
   // src/loaders/OBJLoader.js
   var DEFAULT_COLOR = 13421772;
   function fail2(line, message) {
-    return new Error(`Prism.js: OBJ parse error at line ${line}: ${message}`);
+    return new Error(`Vertex: OBJ parse error at line ${line}: ${message}`);
   }
   function floats(rest, min, line, keyword) {
     const values = rest.split(/\s+/).filter((t) => t !== "").map(Number);
@@ -2402,7 +2402,7 @@ var Prism = (() => {
         try {
           merged.add(await this.mtlLoader.loadAsync(resolveURL(objUrl, name)));
         } catch (error) {
-          console.warn(`Prism.js: Could not load material library "${name}" (${error.message}); default materials are used.`);
+          console.warn(`Vertex: Could not load material library "${name}" (${error.message}); default materials are used.`);
         }
       }
       return merged;
@@ -2427,7 +2427,7 @@ var Prism = (() => {
         if (found !== void 0) return found;
         if (name !== "" && materials && !warned.has(name)) {
           warned.add(name);
-          console.warn(`Prism.js: Material "${name}" is not defined in the loaded MTL; a default gray material is used.`);
+          console.warn(`Vertex: Material "${name}" is not defined in the loaded MTL; a default gray material is used.`);
         }
         if (fallback === null) fallback = new LambertMaterial({ color: DEFAULT_COLOR, side: this.side });
         return fallback;
@@ -2541,7 +2541,7 @@ Source:${excerpt}`;
     const shader = gl.createShader(type);
     if (shader === null) {
       throw new Error(
-        `Prism.js: Failed to create a ${kind} shader object.
+        `Vertex: Failed to create a ${kind} shader object.
 
 The WebGL context may have been lost.
 
@@ -2555,7 +2555,7 @@ ${programName}`
       const log = formatLog(gl.getShaderInfoLog(shader));
       gl.deleteShader(shader);
       throw new Error(
-        `Prism.js: Failed to compile ${kind} shader.
+        `Vertex: Failed to compile ${kind} shader.
 
 WebGL error:
 ${log}
@@ -2575,7 +2575,7 @@ ${programName}${describeSource(source, log)}`
     constructor(gl, { vertexShader, fragmentShader, name = "unnamed" } = {}) {
       if (typeof vertexShader !== "string" || typeof fragmentShader !== "string") {
         throw new TypeError(
-          "Prism.js: WebGLProgram requires `vertexShader` and `fragmentShader` source strings."
+          "Vertex: WebGLProgram requires `vertexShader` and `fragmentShader` source strings."
         );
       }
       this.gl = gl;
@@ -2596,7 +2596,7 @@ ${programName}${describeSource(source, log)}`
         gl.deleteShader(vertex);
         gl.deleteShader(fragment);
         throw new Error(
-          `Prism.js: Failed to create a program object.
+          `Vertex: Failed to create a program object.
 
 The WebGL context may have been lost.
 
@@ -2616,7 +2616,7 @@ ${name}`
       if (!linked) {
         gl.deleteProgram(program);
         throw new Error(
-          `Prism.js: Failed to link shader program.
+          `Vertex: Failed to link shader program.
 
 WebGL error:
 ${log}
@@ -2665,7 +2665,7 @@ ${name}`
     }
     _assertAlive() {
       if (this.program === null) {
-        throw new Error(`Prism.js: WebGLProgram "${this.name}" has been disposed.`);
+        throw new Error(`Vertex: WebGLProgram "${this.name}" has been disposed.`);
       }
     }
   };
@@ -2796,7 +2796,7 @@ void main() {
         this.pointCount++;
       } else {
         throw new TypeError(
-          `Prism.js: Unsupported light type "${light.constructor.name}". Use AmbientLight, DirectionalLight or PointLight.`
+          `Vertex: Unsupported light type "${light.constructor.name}". Use AmbientLight, DirectionalLight or PointLight.`
         );
       }
       this.count++;
@@ -2814,7 +2814,7 @@ void main() {
     _overflow(name, max) {
       if (!this._warned) {
         this._warned = true;
-        console.warn(`Prism.js: Only the first ${max} ${name} are used; additional ones are ignored.`);
+        console.warn(`Vertex: Only the first ${max} ${name} are used; additional ones are ignored.`);
       }
     }
   };
@@ -2937,7 +2937,7 @@ void main() {
       if (entry === void 0) {
         if (definition === void 0) {
           throw new Error(
-            `Prism.js: No shader is available for material type "${material.type}".
+            `Vertex: No shader is available for material type "${material.type}".
 
 Built-in material types: ${Object.keys(SHADER_LIBRARY).join(", ")}.`
           );
@@ -2979,7 +2979,7 @@ Built-in material types: ${Object.keys(SHADER_LIBRARY).join(", ")}.`
     if (array instanceof Int16Array) return gl.SHORT;
     if (array instanceof Uint32Array) return gl.UNSIGNED_INT;
     if (array instanceof Int32Array) return gl.INT;
-    throw new TypeError(`Prism.js: Unsupported array type ${array.constructor.name} for ${what}.`);
+    throw new TypeError(`Vertex: Unsupported array type ${array.constructor.name} for ${what}.`);
   }
   function buildWireframeIndices(geometry) {
     const source = geometry.index ? geometry.index.array : null;
@@ -3016,7 +3016,7 @@ Built-in material types: ${Object.keys(SHADER_LIBRARY).join(", ")}.`
     /** Returns the up-to-date GPU record for `geometry`, uploading what changed. */
     get(geometry) {
       if (!geometry.attributes.position) {
-        throw new Error('Prism.js: Cannot draw a geometry without a "position" attribute.');
+        throw new Error('Vertex: Cannot draw a geometry without a "position" attribute.');
       }
       let record = this._records.get(geometry);
       if (record === void 0) {
@@ -3072,7 +3072,7 @@ Built-in material types: ${Object.keys(SHADER_LIBRARY).join(", ")}.`
           gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, index.array, gl.STATIC_DRAW);
           record.indexType = glTypeOf(gl, index.array, "index");
           if (record.indexType !== gl.UNSIGNED_SHORT && record.indexType !== gl.UNSIGNED_INT) {
-            throw new TypeError("Prism.js: Geometry index must be a Uint16Array or Uint32Array.");
+            throw new TypeError("Vertex: Geometry index must be a Uint16Array or Uint32Array.");
           }
           record.indexCount = index.count;
           record.indexVersion = index.version;
@@ -3270,7 +3270,7 @@ Built-in material types: ${Object.keys(SHADER_LIBRARY).join(", ")}.`
       const height = image.data ? image.height : image.naturalHeight ?? image.videoHeight ?? image.height;
       if (width > this._maxSize || height > this._maxSize) {
         throw new Error(
-          `Prism.js: Texture "${texture.name || texture.id}" is ${width}x${height}, larger than this device's maximum texture size (${this._maxSize}). Resize the image.`
+          `Vertex: Texture "${texture.name || texture.id}" is ${width}x${height}, larger than this device's maximum texture size (${this._maxSize}). Resize the image.`
         );
       }
       this._bindForUpload(record);
@@ -3316,14 +3316,14 @@ Built-in material types: ${Object.keys(SHADER_LIBRARY).join(", ")}.`
   function createCanvas() {
     if (typeof document === "undefined") {
       throw new Error(
-        "Prism.js: No `canvas` option was given and `document` is not available to create one."
+        "Vertex: No `canvas` option was given and `document` is not available to create one."
       );
     }
     return document.createElement("canvas");
   }
   function assertPositive2(name, value) {
     if (!Number.isFinite(value) || value <= 0) {
-      throw new RangeError(`Prism.js: ${name} must be a positive finite number, received ${String(value)}.`);
+      throw new RangeError(`Vertex: ${name} must be a positive finite number, received ${String(value)}.`);
     }
   }
   var Renderer = class {
@@ -3350,7 +3350,7 @@ Built-in material types: ${Object.keys(SHADER_LIBRARY).join(", ")}.`
         pixelRatio = globalThis.devicePixelRatio ?? 1
       } = options;
       if (canvas === null || typeof canvas !== "object" || typeof canvas.getContext !== "function") {
-        throw new TypeError("Prism.js: The `canvas` option must be an HTMLCanvasElement.");
+        throw new TypeError("Vertex: The `canvas` option must be an HTMLCanvasElement.");
       }
       assertPositive2("pixelRatio", pixelRatio);
       this.domElement = canvas;
@@ -3396,7 +3396,7 @@ Built-in material types: ${Object.keys(SHADER_LIBRARY).join(", ")}.`
         event.preventDefault();
         this.contextLost = true;
         console.warn(
-          "Prism.js: WebGL context lost. Engine-managed GPU resources are rebuilt automatically on restore; resources you created with raw gl calls must be recreated by you."
+          "Vertex: WebGL context lost. Engine-managed GPU resources are rebuilt automatically on restore; resources you created with raw gl calls must be recreated by you."
         );
       };
       this._onContextRestored = () => {
@@ -3406,7 +3406,7 @@ Built-in material types: ${Object.keys(SHADER_LIBRARY).join(", ")}.`
         this._textures.clear();
         this.state.reset();
         this._applyState();
-        console.info("Prism.js: WebGL context restored.");
+        console.info("Vertex: WebGL context restored.");
       };
       canvas.addEventListener("webglcontextlost", this._onContextLost, false);
       canvas.addEventListener("webglcontextrestored", this._onContextRestored, false);
@@ -3466,7 +3466,7 @@ Built-in material types: ${Object.keys(SHADER_LIBRARY).join(", ")}.`
       this._assertAlive();
       this._colorScratch.set(color);
       if (!(alpha >= 0 && alpha <= 1)) {
-        throw new RangeError(`Prism.js: Clear alpha must be between 0 and 1, received ${String(alpha)}.`);
+        throw new RangeError(`Vertex: Clear alpha must be between 0 and 1, received ${String(alpha)}.`);
       }
       const c = this._clearColor;
       c[0] = this._colorScratch.r;
@@ -3498,10 +3498,10 @@ Built-in material types: ${Object.keys(SHADER_LIBRARY).join(", ")}.`
     render(scene, camera) {
       this._assertAlive();
       if (!scene || !scene.isScene) {
-        throw new TypeError("Prism.js: Renderer.render(scene, camera) expects a Scene as its first argument.");
+        throw new TypeError("Vertex: Renderer.render(scene, camera) expects a Scene as its first argument.");
       }
       if (!camera || !camera.isCamera) {
-        throw new TypeError("Prism.js: Renderer.render(scene, camera) expects a Camera as its second argument.");
+        throw new TypeError("Vertex: Renderer.render(scene, camera) expects a Camera as its second argument.");
       }
       if (this.contextLost) return;
       const gl = this.gl;
@@ -3550,7 +3550,7 @@ Built-in material types: ${Object.keys(SHADER_LIBRARY).join(", ")}.`
       if (object.isMesh) {
         const material = object.material;
         if (!material || !material.isMaterial) {
-          throw new TypeError(`Prism.js: Mesh "${object.name || object.id}" has no valid material.`);
+          throw new TypeError(`Vertex: Mesh "${object.name || object.id}" has no valid material.`);
         }
         if (material.visible) {
           const item = this._list.push(object, object.geometry, material);
@@ -3583,7 +3583,7 @@ Built-in material types: ${Object.keys(SHADER_LIBRARY).join(", ")}.`
         }
         if (entry.definition.requiresNormals && geometry.attributes.normal === void 0) {
           throw new Error(
-            `Prism.js: ${material.type} needs a "normal" attribute but the geometry has none.
+            `Vertex: ${material.type} needs a "normal" attribute but the geometry has none.
 
 Call geometry.computeVertexNormals() or use a built-in geometry.`
           );
@@ -3599,7 +3599,7 @@ Call geometry.computeVertexNormals() or use a built-in geometry.`
         if (material.map && entry.definition.supportsMap) {
           if (geometry.attributes.uv === void 0) {
             throw new Error(
-              `Prism.js: ${material.type} has a texture map but the geometry has no "uv" attribute.`
+              `Vertex: ${material.type} has a texture map but the geometry has no "uv" attribute.`
             );
           }
           this._textures.bind(material.map);
@@ -3634,7 +3634,7 @@ Call geometry.computeVertexNormals() or use a built-in geometry.`
       canvas.removeEventListener("webglcontextcreationerror", onCreationError, false);
       if (gl === null) {
         throw new Error(
-          'Prism.js: Failed to create a WebGL2 context.\n\nPossible causes: the browser or device does not support WebGL2, hardware acceleration is disabled, or the canvas already has a different context type (for example "2d").' + (statusMessage ? `
+          'Vertex: Failed to create a WebGL2 context.\n\nPossible causes: the browser or device does not support WebGL2, hardware acceleration is disabled, or the canvas already has a different context type (for example "2d").' + (statusMessage ? `
 
 Browser message:
 ${statusMessage}` : "")
@@ -3664,10 +3664,10 @@ ${statusMessage}` : "")
     }
     _assertAlive() {
       if (this._disposed) {
-        throw new Error("Prism.js: Renderer has been disposed.");
+        throw new Error("Vertex: Renderer has been disposed.");
       }
     }
   };
   return __toCommonJS(index_exports);
 })();
-//# sourceMappingURL=prism.js.map
+//# sourceMappingURL=Vertex.map

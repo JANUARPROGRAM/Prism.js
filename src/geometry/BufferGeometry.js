@@ -21,7 +21,7 @@ export class BufferGeometry {
 
 	setAttribute(name, attribute) {
 		if (!attribute || !attribute.isBufferAttribute) {
-			throw new TypeError(`Prism.js: setAttribute("${name}") expects a BufferAttribute.`);
+			throw new TypeError(`Vertex: setAttribute("${name}") expects a BufferAttribute.`);
 		}
 		this.attributes[name] = attribute;
 		return this;
@@ -59,7 +59,7 @@ export class BufferGeometry {
 	computeVertexNormals() {
 		const position = this.attributes.position;
 		if (!position || position.itemSize !== 3) {
-			throw new Error('Prism.js: computeVertexNormals() needs a 3-component "position" attribute.');
+			throw new Error('Vertex: computeVertexNormals() needs a 3-component "position" attribute.');
 		}
 		const p = position.array;
 		const normals = new Float32Array(p.length);
