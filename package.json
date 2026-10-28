@@ -37,7 +37,7 @@
     "build": "npm run build:js && npm run build:css",
     "prepublishOnly": "npm run build && npm test",
     "build:js": "esbuild src/index.js --bundle --format=iife --global-name=Prism --sourcemap --outfile=dist/Vertex && esbuild src/index.js --bundle --format=iife --global-name=Prism --minify --sourcemap --outfile=dist/prism.min.js && esbuild src/index.js --bundle --format=esm --minify --sourcemap --outfile=dist/prism.module.js",
-    "build:css": "esbuild src/prism.css --outfile=dist/prism.css && esbuild src/prism.css --minify --outfile=dist/prism.min.css",
+    "build:css": "esbuild src/vertex.css --outfile=dist/vertex.css && esbuild src/vertex.css --minify --outfile=dist/prism.min.css",
     "assets": "node scripts/make-sample-assets.js"
   },
   "devDependencies": {
